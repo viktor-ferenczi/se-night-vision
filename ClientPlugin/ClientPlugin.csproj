@@ -2,7 +2,7 @@
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <RootNamespace>ClientPlugin</RootNamespace>
-    <AssemblyName>ClientPluginTemplate</AssemblyName>
+    <AssemblyName>NightVision</AssemblyName>
     <LangVersion>14</LangVersion>
       
     <!-- Target platforms on Windows and Linux -->
