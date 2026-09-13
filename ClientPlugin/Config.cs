@@ -64,7 +64,7 @@ public class Config : INotifyPropertyChanged
 
     [Separator("Activation")]
     [Dropdown(
-        description: "Hotkey: a key combination toggles night vision\nLong Press: holding the light key toggles night vision, a tap toggles the light\nCycle: each tap of the light key goes Off, Light, Night vision"
+        description: "Long Press: holding the light key toggles night vision, a tap toggles the light\nHotkey: only the hotkey toggles night vision\nCycle: each tap of the light key goes Off, Light, Night vision"
     )]
     public ActivationMode ActivationMode
     {

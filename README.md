@@ -61,17 +61,17 @@ box is processed too, since the depth buffer cannot tell it apart from the world
 
 Pick the mode in the Settings:
 
-1. **Hotkey** (default): Shift plus whatever key the light is bound to (L by default). The binding
-   is resolved at runtime, so rebinding the light key moves the hotkey with it. An explicit key in
-   the Settings overrides this. The light does not toggle together with it.
-2. **Long Press**: a tap of the light key toggles the light as in vanilla, holding it past the
-   threshold toggles night vision and leaves the light alone.
+1. **Long Press** (default): holding the light key past the threshold toggles night vision and
+   leaves the light alone; a tap toggles the light as in vanilla. The key is whatever the light is
+   bound to (L by default), resolved at runtime, so rebinding the light key moves it too.
+2. **Hotkey**: only the hotkey toggles night vision, the light key works as in vanilla.
 3. **Cycle**: each tap of the light key moves Off → Light → Night vision (light off) → Off. Without
    a source (helmet open on foot) it skips night vision. In a cockpit the light is the ship's
    spotlights, as in vanilla; on a grid without spotlights it goes Off → Night vision → Off.
 
-The hotkey keeps working in the Long Press and Cycle modes unless that is switched off. The
-gamepad light binding is left as in vanilla. The spectator light is never touched.
+The hotkey is Shift plus the light key unless a key is set in the Settings, and the light does not
+toggle together with it. It keeps working in the Long Press and Cycle modes unless that is switched
+off. The gamepad light binding is left as in vanilla. The spectator light is never touched.
 
 ## How it works
 

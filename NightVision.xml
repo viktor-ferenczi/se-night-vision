@@ -17,18 +17,20 @@
     <Tooltip>Toggleable night vision built into the suit helmet and the cockpit glass.</Tooltip>
 
     <!-- Optional plugin description. If omitted, this will be the same as the Tooltip. 1000 characters max. -->
-    <Description>Adds a night vision mode in the style of Elite Dangerous: amplified monochrome
-luminance, bright outlines on silhouettes, grain, a vignette and washed out light sources.
+    <Description>Adds a night vision mode in the style of Elite Dangerous: amplified green
+luminance with thin outlines on silhouettes, grain and a vignette.
 
 The suit helmet provides it while the helmet is closed, on foot or in seats without glass.
 Cockpits with glass apply it only to what is seen through the glass.
 
-Default activation: Shift + the light key (L). A long press or a three state cycle on the
-light key can be chosen in the plugin's Settings, along with the look.
+Hold the light key (L) to toggle it; a tap still toggles the light. Shift + the light key
+works too. A three state cycle on the light key or a custom hotkey can be chosen in the
+plugin's Settings, along with the look and the HUD icon.
 
 Purely local visual effect, nothing is synced.
 
 For support please join the Pulsar Discord: https://discord.gg/z8ZczP2YZY
+Please consider supporting my work on Patreon: https://www.patreon.com/semods
     </Description>
 
     <!-- Only source code in the Directory entries listed in SourceDirectories is compiled. Exclude any test projects or similar. -->
@@ -36,8 +38,8 @@ For support please join the Pulsar Discord: https://discord.gg/z8ZczP2YZY
         <Directory>ClientPlugin</Directory>
     </SourceDirectories>
 
-    <!-- The game's shader compiler loads shaders from files, so the HLSL source is copied onto
-         disk. The reserved asset name "AssetFolder" makes Pulsar call Plugin.LoadAssets(string). -->
+    <!-- The game's shader compiler loads shaders from files, so the HLSL source and the HUD icon are
+         copied onto disk. The reserved asset name "AssetFolder" makes Pulsar call Plugin.LoadAssets(string). -->
     <Asset Name="AssetFolder" Path="ClientPlugin/Assets" />
 
     <!-- The current plugin version's commit hash -->
