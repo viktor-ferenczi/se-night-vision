@@ -36,7 +36,7 @@ public class Config : INotifyPropertyChanged
 {
     #region Options
 
-    private ActivationMode activationMode = ActivationMode.Hotkey;
+    private ActivationMode activationMode = ActivationMode.LongPress;
     private bool hotkeyAlwaysActive = true;
     private Binding hotkey = new Binding(MyKeys.None);
     private float longPressSeconds = 0.5f;
