@@ -1,119 +1,251 @@
-using ClientPlugin.Settings;
-using ClientPlugin.Settings.Elements;
-using Sandbox.Graphics.GUI;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Text;
+using ClientPlugin.Settings;
+using ClientPlugin.Settings.Elements;
 using ClientPlugin.Settings.Tools;
 using VRage.Input;
 using VRageMath;
 
-
 namespace ClientPlugin;
 
-public enum ExampleEnum
+public enum ActivationMode
 {
-    FirstAlpha,
-    SecondBeta,
-    ThirdGamma,
-    AndTheDelta,
-    Epsilon
+    // A key combination toggles night vision (Shift + the light key unless set explicitly)
+    Hotkey,
+
+    // Tapping the light key toggles the light, holding it toggles night vision
+    LongPress,
+
+    // Each tap of the light key: Off -> Light -> Night vision -> Off
+    Cycle,
+}
+
+public enum HudIndicator
+{
+    // A 5th state icon right of the light icon, always shown and dimmed while off
+    IconRow,
+
+    // Above the light icon, only while night vision is on
+    AboveLightIcon,
+
+    Off,
 }
 
 public class Config : INotifyPropertyChanged
 {
     #region Options
 
-    // TODO: Define your configuration options and their default values
-    private bool toggle = true;
-    private int integer = 2;
-    private float number = 0.1f;
-    private string text = "Default Text";
-    private ExampleEnum dropdown = ExampleEnum.FirstAlpha;
-    private Color color = Color.Cyan;
-    private Color colorWithAlpha = new Color(0.8f, 0.6f, 0.2f, 0.5f);
-    private Binding keybind = new Binding(MyKeys.None);
+    private ActivationMode activationMode = ActivationMode.Hotkey;
+    private bool hotkeyAlwaysActive = true;
+    private Binding hotkey = new Binding(MyKeys.None);
+    private float longPressSeconds = 0.5f;
+    private HudIndicator hudIndicator = HudIndicator.IconRow;
+
+    private Color tint = new Color(0.35f, 1f, 0.7f);
+    private float gain = 6f;
+    private float skyGain = 0.05f;
+    private float naturalLightThreshold = 0.2f;
+    private float outlineStrength = 1.5f;
+    private float creaseLines = 0f;
+    private float noise = 0.5f;
+    private float vignette = 0.6f;
+    private float washout = 1f;
+    private float fadeSeconds = 0.3f;
+
+    private string forceGlass = "";
+    private string forceNoGlass = "";
 
     #endregion
 
     #region User interface
 
-    // TODO: Settings dialog title
-    public readonly string Title = "Config Demo";
+    public readonly string Title = "Night Vision";
 
-    [Separator("Some settings")]
-        
-    // TODO: Settings dialog controls, one property for each configuration option
-
-    [Checkbox(description: "Checkbox Tooltip")]
-    public bool Toggle
+    [Separator("Activation")]
+    [Dropdown(
+        description: "Hotkey: a key combination toggles night vision\nLong Press: holding the light key toggles night vision, a tap toggles the light\nCycle: each tap of the light key goes Off, Light, Night vision"
+    )]
+    public ActivationMode ActivationMode
     {
-        get => toggle;
-        set => SetField(ref toggle, value);
+        get => activationMode;
+        set => SetField(ref activationMode, value);
     }
 
-    [Slider(-1f, 10f, 1f, SliderAttribute.SliderType.Integer, description: "Integer Slider Tooltip")]
-    public int Integer
+    [Checkbox(description: "Keep the hotkey working in the Long Press and Cycle modes as well")]
+    public bool HotkeyAlwaysActive
     {
-        get => integer;
-        set => SetField(ref integer, value);
+        get => hotkeyAlwaysActive;
+        set => SetField(ref hotkeyAlwaysActive, value);
     }
 
-    [Slider(-5f, 4.5f, 0.5f, SliderAttribute.SliderType.Float, description: "Float Slider Tooltip")]
-    public float Number
+    [Keybind(
+        description: "Night vision hotkey. Unbind it (right click) to use Shift plus whatever key the light is bound to."
+    )]
+    public Binding Hotkey
     {
-        get => number;
-        set => SetField(ref number, value);
+        get => hotkey;
+        set => SetField(ref hotkey, value);
     }
 
-    [Textbox(description: "Textbox Tooltip")]
-    public string Text
+    [Slider(
+        0.2f,
+        1.5f,
+        0.05f,
+        SliderAttribute.SliderType.Float,
+        description: "How long the light key has to be held in the Long Press mode (seconds)"
+    )]
+    public float LongPressSeconds
     {
-        get => text;
-        set => SetField(ref text, value);
+        get => longPressSeconds;
+        set => SetField(ref longPressSeconds, value);
     }
 
-    [Dropdown(description: "Dropdown Tooltip")]
-    public ExampleEnum Dropdown
+    [Dropdown(
+        description: "Icon Row: a 5th icon next to the light icon, dimmed while off\nAbove Light Icon: above the light icon, only while night vision is on (avoids conflicts with HUD mods)\nOff: no indicator\nModded HUDs never get an indicator."
+    )]
+    public HudIndicator HudIndicator
     {
-        get => dropdown;
-        set => SetField(ref dropdown, value);
+        get => hudIndicator;
+        set => SetField(ref hudIndicator, value);
     }
 
-    [Separator("More settings")]
-        
-    [Color(description: "RGB color")]
-    public Color Color
+    [Separator("Look")]
+    [Color(description: "Monochrome tint")]
+    public Color Tint
     {
-        get => color;
-        set => SetField(ref color, value);
+        get => tint;
+        set => SetField(ref tint, value);
     }
 
-    [Color(hasAlpha: true, description: "RGBA color")]
-    public Color ColorWithAlpha
+    [Slider(
+        1f,
+        64f,
+        0.5f,
+        SliderAttribute.SliderType.Float,
+        description: "Luminance amplification"
+    )]
+    public float Gain
     {
-        get => colorWithAlpha;
-        set => SetField(ref colorWithAlpha, value);
+        get => gain;
+        set => SetField(ref gain, value);
     }
 
-    [Keybind(description: "Keybind Tooltip - Unbind by right clicking the button")]
-    public Binding Keybind
+    [Slider(
+        0f,
+        1f,
+        0.05f,
+        SliderAttribute.SliderType.Float,
+        description: "Amplification of the sky relative to the gain, low values keep space black with the stars showing"
+    )]
+    public float SkyGain
     {
-        get => keybind;
-        set => SetField(ref keybind, value);
+        get => skyGain;
+        set => SetField(ref skyGain, value);
     }
 
-    [Button(description: "Button Tooltip")]
-    public void Button()
+    [Slider(
+        0f,
+        2f,
+        0.05f,
+        SliderAttribute.SliderType.Float,
+        description: "Surfaces lit brighter than this by nearby lights keep their natural color (0 turns it off)"
+    )]
+    public float NaturalLightThreshold
     {
-        MyGuiSandbox.AddScreen(MyGuiSandbox.CreateMessageBox(
-            MyMessageBoxStyleEnum.Info,
-            buttonType: MyMessageBoxButtonsType.OK,
-            messageText: new StringBuilder("You clicked me!"),
-            messageCaption: new StringBuilder("Custom Button Function"),
-            size: new Vector2(0.6f, 0.5f)
-        ));
+        get => naturalLightThreshold;
+        set => SetField(ref naturalLightThreshold, value);
+    }
+
+    [Slider(
+        0f,
+        3f,
+        0.05f,
+        SliderAttribute.SliderType.Float,
+        description: "Brightness of the contour lines on silhouettes, creases and panel lines"
+    )]
+    public float OutlineStrength
+    {
+        get => outlineStrength;
+        set => SetField(ref outlineStrength, value);
+    }
+
+    [Slider(
+        0f,
+        1f,
+        0.05f,
+        SliderAttribute.SliderType.Float,
+        description: "Contour lines on creases and panel lines, such as the edges of every armor block (0 outlines only silhouettes)"
+    )]
+    public float CreaseLines
+    {
+        get => creaseLines;
+        set => SetField(ref creaseLines, value);
+    }
+
+    [Slider(0f, 2f, 0.05f, SliderAttribute.SliderType.Float, description: "Sensor grain")]
+    public float Noise
+    {
+        get => noise;
+        set => SetField(ref noise, value);
+    }
+
+    [Slider(
+        0f,
+        1f,
+        0.05f,
+        SliderAttribute.SliderType.Float,
+        description: "Darkening towards the edges of the screen"
+    )]
+    public float Vignette
+    {
+        get => vignette;
+        set => SetField(ref vignette, value);
+    }
+
+    [Slider(
+        0f,
+        4f,
+        0.1f,
+        SliderAttribute.SliderType.Float,
+        description: "How much bright light sources overload the sensor and bloom"
+    )]
+    public float Washout
+    {
+        get => washout;
+        set => SetField(ref washout, value);
+    }
+
+    [Slider(
+        0f,
+        1f,
+        0.05f,
+        SliderAttribute.SliderType.Float,
+        description: "Fade and flash duration when switching on and off (seconds)"
+    )]
+    public float FadeSeconds
+    {
+        get => fadeSeconds;
+        set => SetField(ref fadeSeconds, value);
+    }
+
+    [Separator("Cockpit glass overrides")]
+    [Textbox(
+        description: "Comma separated block subtype IDs always treated as having see-through glass (for modded cockpits)"
+    )]
+    public string ForceGlass
+    {
+        get => forceGlass;
+        set => SetField(ref forceGlass, value);
+    }
+
+    [Textbox(
+        description: "Comma separated block subtype IDs always treated as having no glass, so the helmet provides night vision"
+    )]
+    public string ForceNoGlass
+    {
+        get => forceNoGlass;
+        set => SetField(ref forceNoGlass, value);
     }
 
     #endregion
@@ -132,7 +264,8 @@ public class Config : INotifyPropertyChanged
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
     {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+        if (EqualityComparer<T>.Default.Equals(field, value))
+            return false;
         field = value;
         OnPropertyChanged(propertyName);
         return true;
