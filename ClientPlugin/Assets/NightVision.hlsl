@@ -26,6 +26,7 @@ Texture2D<float4> SceneTex    : register(t20); // copy of the light buffer (HDR,
 Texture2D<float>  DepthTex    : register(t21); // resolved hardware depth (reversed projection)
 Texture2D<float4> Gbuffer1Tex : register(t22); // xy = packed view-space normal
 Texture2D<float2> ExposureTex : register(t23); // 1x1, g = log2 exposure (see Postprocess/Defines.hlsli)
+Texture2D<float4> Gbuffer0Tex : register(t24); // rgb = linear base color
 
 static const float3 LuminanceWeights = float3(0.2126, 0.7152, 0.0722);
 static const float SkyDepth = 1e6;
@@ -114,6 +115,12 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
     float luminance = dot(exposed, LuminanceWeights);
     bool sky = centerDepth >= SkyDepth;
 
+    // Remove the material's base color from the visible response to estimate lighting. This keeps
+    // black paint in daylight from looking like an unlit surface. Sky has no G-buffer material.
+    float lightLevel = luminance;
+    if (!sky)
+        lightLevel /= max(dot(Gbuffer0Tex.Load(int3(texel, 0)).rgb, LuminanceWeights), 1e-4);
+
     // Amplified luminance, colour dropped. The soft knee lifts the shadows and levels off
     // below 1, so moderately lit surfaces do not turn into a glaring band before the natural
     // color takes over. The sky gets much less gain: space stays black with the stars showing.
@@ -133,21 +140,19 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
 
     float3 nightVision = TintGain.rgb * amplified;
 
-    // Surfaces lit well enough by nearby lights (headlight, spotlights) are seen in their
-    // natural color, the way the sensor passes through what the eye can already see.
-    float natural = 0;
-    if (Extra.x > 0 && !sky)
-        natural = smoothstep(Extra.x, Extra.x * 3, luminance);
-    nightVision = lerp(nightVision, exposed, natural);
+    // Apply the sensor only where the estimated lighting is dark. The final composite uses this
+    // mask so outlines, grain, vignette and flash also leave light areas alone.
+    float darkness = 1;
+    if (Extra.x > 0)
+        darkness = 1 - smoothstep(0, Extra.x, lightLevel);
 
-    // Bright contour lines, drawn as a light cyan glow on top of the tinted image. Faded on
-    // naturally lit surfaces, which are readable on their own.
+    // Bright contour lines, drawn as a light cyan glow on top of the tinted image.
     // The right and lower neighbors' edges count at a third of their strength, which widens the
     // lines to about 1.3 pixels: one full pixel with a faint second one.
     float edgeRaw = max(EdgeStrength(texel, centerDepth),
                         0.33 * max(EdgeStrength(texel + int2(1, 0), LinearDepth(texel + int2(1, 0))),
                                    EdgeStrength(texel + int2(0, 1), LinearDepth(texel + int2(0, 1)))));
-    float edge = edgeRaw * Look.x * (1 - 0.7 * natural);
+    float edge = edgeRaw * Look.x;
     float3 edgeColor = lerp(TintGain.rgb, 1, 0.35);
     nightVision += edgeColor * edge * 0.6;
 
@@ -158,7 +163,7 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
     // Switch-on flash.
     nightVision = nightVision * (1 + Anim.y * 3) + TintGain.rgb * Anim.y * 0.6;
 
-    float3 result = lerp(exposed, nightVision, saturate(Anim.x));
+    float3 result = lerp(exposed, nightVision, saturate(Anim.x * darkness));
 
     output = float4(result / max(exposure, 1e-6), scene.a);
 }

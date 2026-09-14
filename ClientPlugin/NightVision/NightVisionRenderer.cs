@@ -109,6 +109,7 @@ public static class NightVisionRenderer
             rc.PixelShader.SetSrv(21, MyGBuffer.Main.ResolvedDepthStencil.SrvDepth);
             rc.PixelShader.SetSrv(22, MyGBuffer.Main.GBuffer1);
             rc.PixelShader.SetSrv(23, MyEyeAdaptation.GetExposure());
+            rc.PixelShader.SetSrv(24, MyGBuffer.Main.GBuffer0);
 
             MyScreenPass.DrawFullscreenQuad(rc);
 
@@ -116,6 +117,7 @@ public static class NightVisionRenderer
             rc.PixelShader.SetSrv(21, null);
             rc.PixelShader.SetSrv(22, null);
             rc.PixelShader.SetSrv(23, null);
+            rc.PixelShader.SetSrv(24, null);
             rc.DeviceContext.PixelShader.SetConstantBuffer(ConstantsSlot, null);
             rc.SetDepthStencilState(null);
             rc.SetRtvNull();

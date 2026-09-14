@@ -11,7 +11,7 @@ Elite Dangerous. It is built into the suit helmet and into cockpit glass.
   edge detect on depth. Crease and panel lines from the normals, such as the edges of every
   armor block, are off by default and can be mixed in.
 - The sky gets little amplification, so space stays black with the stars showing.
-- Surfaces lit well enough by nearby lights (the headlight, spotlights) keep their natural color.
+- Surfaces lit well enough by sunlight, ambient light or local lights keep their natural color.
 - Grain and a vignette.
 - Bright light sources overload the sensor and bloom instead of clipping.
 - A short fade and flash when it switches on and off.

@@ -149,7 +149,7 @@ public class Config : INotifyPropertyChanged
         2f,
         0.05f,
         SliderAttribute.SliderType.Float,
-        description: "Surfaces lit brighter than this by nearby lights keep their natural color (0 turns it off)"
+        description: "Surfaces with lighting above this level keep their natural color (0 turns it off)"
     )]
     public float NaturalLightThreshold
     {
