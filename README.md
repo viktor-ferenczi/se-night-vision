@@ -6,6 +6,7 @@ Elite Dangerous. It is built into the suit helmet and into cockpit glass.
 ## Look
 
 - Amplified luminance with the color dropped, so dark areas become readable.
+- A wide, short-range infrared flood reveals geometry when no visible light remains.
 - A monochrome teal-cyan tint by default.
 - Thin bright contour lines on silhouettes, horizons and real steps between surfaces, from an
   edge detect on depth. Crease and panel lines from the normals, such as the edges of every
@@ -16,8 +17,8 @@ Elite Dangerous. It is built into the suit helmet and into cockpit glass.
 - Bright light sources overload the sensor and bloom instead of clipping.
 - A short fade and flash when it switches on and off.
 
-Tint, gain, sky gain, the natural light threshold, outline strength, crease lines, grain,
-vignette, washout and fade time are set in the plugin's Settings.
+Tint, gain, fallback flood strength, sky gain, the natural light threshold, outline strength,
+crease lines, grain, vignette, washout and fade time are set in the plugin's Settings.
 
 ## When it applies
 

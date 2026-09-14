@@ -19,7 +19,7 @@ cbuffer NightVisionConstants : register(b8)
     float4 BoxAxisX;    // xyz = unit axis, w = half extent along it
     float4 BoxAxisY;
     float4 BoxAxisZ;
-    float4 Extra;       // x = natural light threshold (0 = off), y = sky gain relative to the gain
+    float4 Extra;       // x = natural light threshold, y = sky gain, z = crease lines, w = IR fallback
 };
 
 Texture2D<float4> SceneTex    : register(t20); // copy of the light buffer (HDR, not yet exposed)
@@ -30,6 +30,7 @@ Texture2D<float4> Gbuffer0Tex : register(t24); // rgb = linear base color
 
 static const float3 LuminanceWeights = float3(0.2126, 0.7152, 0.0722);
 static const float SkyDepth = 1e6;
+static const float InfraredRange = 50;
 
 float Hash(float2 p)
 {
@@ -117,14 +118,37 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
 
     // Remove the material's base color from the visible response to estimate lighting. This keeps
     // black paint in daylight from looking like an unlit surface. Sky has no G-buffer material.
+    float baseLuminance = 1;
     float lightLevel = luminance;
     if (!sky)
-        lightLevel /= max(dot(Gbuffer0Tex.Load(int3(texel, 0)).rgb, LuminanceWeights), 1e-4);
+    {
+        baseLuminance = dot(Gbuffer0Tex.Load(int3(texel, 0)).rgb, LuminanceWeights);
+        lightLevel /= max(baseLuminance, 1e-4);
+    }
+
+    // Apply the sensor only where the estimated lighting is dark. The final composite uses this
+    // mask so outlines, grain, vignette, flash and the IR illuminator leave light areas alone.
+    float darkness = 1;
+    if (Extra.x > 0)
+        darkness = 1 - smoothstep(0, Extra.x, lightLevel);
+
+    // A wide, camera-mounted IR flood supplies a signal when visible lighting has none. The base
+    // color contributes texture but has a floor because visible-black paint need not absorb IR.
+    float sensorLuminance = luminance;
+    if (!sky)
+    {
+        float3 viewRay = compute_screen_ray(uv);
+        float rangeFade = saturate(1 - length(centerDepth * viewRay) / InfraredRange);
+        rangeFade *= rangeFade;
+        float facing = saturate(dot(Normal(texel), -normalize(viewRay)));
+        float irReflectance = lerp(0.1, 1, saturate(baseLuminance));
+        sensorLuminance += Extra.w * rangeFade * irReflectance * lerp(0.25, 1, facing);
+    }
 
     // Amplified luminance, colour dropped. The soft knee lifts the shadows and levels off
     // below 1, so moderately lit surfaces do not turn into a glaring band before the natural
     // color takes over. The sky gets much less gain: space stays black with the stars showing.
-    float amplified = luminance * TintGain.w;
+    float amplified = sensorLuminance * TintGain.w;
     if (sky)
         amplified *= Extra.y;
     else
@@ -139,12 +163,6 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
     amplified = max(amplified + grain * Look.y * (0.06 + 0.25 * amplified), 0);
 
     float3 nightVision = TintGain.rgb * amplified;
-
-    // Apply the sensor only where the estimated lighting is dark. The final composite uses this
-    // mask so outlines, grain, vignette and flash also leave light areas alone.
-    float darkness = 1;
-    if (Extra.x > 0)
-        darkness = 1 - smoothstep(0, Extra.x, lightLevel);
 
     // Bright contour lines, drawn as a light cyan glow on top of the tinted image.
     // The right and lower neighbors' edges count at a third of their strength, which widens the

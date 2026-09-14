@@ -44,6 +44,7 @@ public class Config : INotifyPropertyChanged
 
     private Color tint = new Color(0.35f, 1f, 0.7f);
     private float gain = 6f;
+    private float fallback = 0.01f;
     private float skyGain = 0.05f;
     private float naturalLightThreshold = 0.2f;
     private float outlineStrength = 1.5f;
@@ -129,6 +130,19 @@ public class Config : INotifyPropertyChanged
     {
         get => gain;
         set => SetField(ref gain, value);
+    }
+
+    [Slider(
+        0f,
+        0.1f,
+        0.01f,
+        SliderAttribute.SliderType.Float,
+        description: "Strength of the short-range infrared flood used when visible light is absent"
+    )]
+    public float Fallback
+    {
+        get => fallback;
+        set => SetField(ref fallback, value);
     }
 
     [Slider(

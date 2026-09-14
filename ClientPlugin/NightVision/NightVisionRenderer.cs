@@ -149,7 +149,7 @@ public static class NightVisionRenderer
                 config.NaturalLightThreshold,
                 config.SkyGain,
                 config.CreaseLines,
-                0f
+                config.Fallback
             ),
         };
 
