@@ -10,7 +10,7 @@ Elite Dangerous. It is built into the suit helmet and into cockpit glass.
 - A monochrome teal-cyan tint by default.
 - Thin bright contour lines on silhouettes, horizons and real steps between surfaces, from an
   edge detect on depth. Crease and panel lines from the normals, such as the edges of every
-  armor block, are off by default and can be mixed in.
+  armor block, are off by default and can be mixed in. Grass, bushes and trees do not receive them.
 - The sky gets little amplification, so space stays black with the stars showing.
 - Surfaces lit well enough by sunlight, ambient light or local lights keep their natural color.
 - Grain and a vignette.

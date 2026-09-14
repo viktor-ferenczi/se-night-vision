@@ -26,7 +26,8 @@ Texture2D<float4> SceneTex    : register(t20); // copy of the light buffer (HDR,
 Texture2D<float>  DepthTex    : register(t21); // resolved hardware depth (reversed projection)
 Texture2D<float4> Gbuffer1Tex : register(t22); // xy = packed view-space normal
 Texture2D<float2> ExposureTex : register(t23); // 1x1, g = log2 exposure (see Postprocess/Defines.hlsli)
-Texture2D<float4> Gbuffer0Tex : register(t24); // rgb = linear base color
+Texture2D<float4> Gbuffer0Tex : register(t24); // rgb = linear base color, a = model LOD/tree marker
+Texture2D<float4> Gbuffer2Tex : register(t25); // a = multisample coverage; foliage writes zero
 
 static const float3 LuminanceWeights = float3(0.2126, 0.7152, 0.0722);
 static const float SkyDepth = 1e6;
@@ -59,32 +60,64 @@ float3 Normal(int2 texel)
     return unpack_normals2(Gbuffer1Tex.Load(int3(texel, 0)).xy);
 }
 
+bool IsFoliage(int2 texel, float depth)
+{
+    return depth < SkyDepth
+        && (Gbuffer2Tex.Load(int3(texel, 0)).a == 0
+            || abs(Gbuffer0Tex.Load(int3(texel, 0)).a * 255 - 254) < 0.5);
+}
+
+float MaskedDepthEdge(float centerDepth, float2 depths, bool2 foliage, bool centerFoliage)
+{
+    if (centerFoliage)
+        return max(!foliage.x ? centerDepth - depths.x : 0, 0)
+             + max(!foliage.y ? centerDepth - depths.y : 0, 0);
+
+    if (!any(foliage))
+        return abs(depths.x + depths.y - 2 * centerDepth);
+
+    // An edge involving foliage is valid only when the foliage is behind solid geometry.
+    return max(0, max(foliage.x ? depths.x - centerDepth : 0,
+                      foliage.y ? depths.y - centerDepth : 0));
+}
+
 float EdgeStrength(int2 texel, float centerDepth)
 {
     if (centerDepth >= SkyDepth)
         return 0;
 
+    bool centerFoliage = IsFoliage(texel, centerDepth);
+
     float l = LinearDepth(texel + int2(-1, 0));
     float r = LinearDepth(texel + int2(1, 0));
     float u = LinearDepth(texel + int2(0, -1));
     float d = LinearDepth(texel + int2(0, 1));
+    bool lc = IsFoliage(texel + int2(-1, 0), l);
+    bool rc = IsFoliage(texel + int2(1, 0), r);
+    bool uc = IsFoliage(texel + int2(0, -1), u);
+    bool dc = IsFoliage(texel + int2(0, 1), d);
 
     // Second derivative of depth, relative to the distance: flat and sloped surfaces
     // both give ~0, only depth discontinuities (silhouettes) stand out. The geometry
     // side of a silhouette against the sky gets the full line, so horizons are traced.
-    float laplacian = abs(l + r - 2 * centerDepth) + abs(u + d - 2 * centerDepth);
+    float laplacian = MaskedDepthEdge(centerDepth, float2(l, r), bool2(lc, rc), centerFoliage)
+                    + MaskedDepthEdge(centerDepth, float2(u, d), bool2(uc, dc), centerFoliage);
     float depthEdge = saturate(laplacian / (centerDepth * 0.02 + 0.05) - 0.1);
 
     // Creases and panel lines: normals that change direction between neighbors,
     // checked on both sides so the line is centered and reads as a contour.
-    float3 n = Normal(texel);
-    float bend = (1 - dot(n, Normal(texel + int2(1, 0))))
-               + (1 - dot(n, Normal(texel + int2(-1, 0))))
-               + (1 - dot(n, Normal(texel + int2(0, 1))))
-               + (1 - dot(n, Normal(texel + int2(0, -1))));
-    float normalEdge = saturate(bend * 2 - 0.15);
-    // Fade with distance, where the normals of rough terrain turn into noise.
-    normalEdge *= saturate(1.5 - centerDepth / 1500);
+    float normalEdge = 0;
+    if (!centerFoliage)
+    {
+        float3 n = Normal(texel);
+        float bend = (1 - dot(n, rc ? n : Normal(texel + int2(1, 0))))
+                   + (1 - dot(n, lc ? n : Normal(texel + int2(-1, 0))))
+                   + (1 - dot(n, dc ? n : Normal(texel + int2(0, 1))))
+                   + (1 - dot(n, uc ? n : Normal(texel + int2(0, -1))));
+        normalEdge = saturate(bend * 2 - 0.15);
+        // Fade with distance, where the normals of rough terrain turn into noise.
+        normalEdge *= saturate(1.5 - centerDepth / 1500);
+    }
 
     // Crease lines are weighted separately: at 0 only silhouettes and real steps between surfaces
     // are outlined, not the bevels every armor block has along its borders.
