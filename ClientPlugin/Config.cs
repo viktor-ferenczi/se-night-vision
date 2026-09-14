@@ -47,6 +47,8 @@ public class Config : INotifyPropertyChanged
     private float fallback = 0.01f;
     private float skyGain = 0.05f;
     private float naturalLightThreshold = 0.2f;
+    private Color fogTint = new Color(0.35f, 0.7f, 1f);
+    private float fogVisibility = 0.75f;
     private float outlineStrength = 1.5f;
     private float creaseLines = 0f;
     private float noise = 0.5f;
@@ -241,6 +243,27 @@ public class Config : INotifyPropertyChanged
     {
         get => fadeSeconds;
         set => SetField(ref fadeSeconds, value);
+    }
+
+    [Separator("Fog vision")]
+    [Color(description: "Monochrome tint used when fog obscures the scene")]
+    public Color FogTint
+    {
+        get => fogTint;
+        set => SetField(ref fogTint, value);
+    }
+
+    [Slider(
+        0f,
+        1f,
+        0.05f,
+        SliderAttribute.SliderType.Float,
+        description: "Remaining visibility where fog vision begins (0 disables it)"
+    )]
+    public float FogVisibility
+    {
+        get => fogVisibility;
+        set => SetField(ref fogVisibility, value);
     }
 
     [Separator("Cockpit glass overrides")]

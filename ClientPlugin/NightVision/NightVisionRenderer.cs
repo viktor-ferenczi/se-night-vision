@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using SharpDX.Direct3D;
 using VRage.FileSystem;
 using VRage.Render11.Common;
 using VRage.Render11.RenderContext;
@@ -29,6 +30,7 @@ public static class NightVisionRenderer
         public Vector4 BoxAxisY;
         public Vector4 BoxAxisZ;
         public Vector4 Extra;
+        public Vector4 FogVision;
     }
 
     // Matches register(b8) in the shader. The game owns b0-b7 (see MyCommon).
@@ -44,6 +46,10 @@ public static class NightVisionRenderer
     private static bool failed;
     private static bool shaderInitialized;
     private static MyPixelShaders.Id pixelShader;
+    private static MyPixelShaders.Id noFogLightPixel = MyPixelShaders.Id.NULL;
+    private static MyPixelShaders.Id noFogLightSample = MyPixelShaders.Id.NULL;
+    private static MyPixelShaders.Id noFogLightNoShadow = MyPixelShaders.Id.NULL;
+    private static IBorrowedRtvTexture sensorScene;
 
     public static void Publish(NightVisionSnapshot value)
     {
@@ -53,27 +59,113 @@ public static class NightVisionRenderer
     /// <summary>Entry point from the eye adaptation patches. Never throws: disables itself on the first error.</summary>
     public static void Apply()
     {
+        var sensor = sensorScene;
+        sensorScene = null;
+
         if (failed)
+        {
+            sensor?.Release();
             return;
+        }
 
         var snap = snapshot;
         if (snap == null || snap.Blend <= 0f)
+        {
+            sensor?.Release();
+            return;
+        }
+
+        try
+        {
+            ApplyInternal(MyRender11.RC, snap, sensor);
+        }
+        catch (Exception e)
+        {
+            Fail(e);
+        }
+        finally
+        {
+            sensor?.Release();
+        }
+    }
+
+    public static bool BeginDirectionalLight(MyRenderContext rc)
+    {
+        var snap = snapshot;
+        if (
+            failed
+            || !shaderInitialized
+            || noFogLightPixel == MyPixelShaders.Id.NULL
+            || snap == null
+            || snap.Blend <= 0f
+        )
+            return false;
+
+        try
+        {
+            var lbuffer = MyGBuffer.Main.LBuffer;
+            sensorScene?.Release();
+            sensorScene = MyManagers.RwTexturesPool.BorrowRtv(
+                "NightVision.Sensor",
+                lbuffer.Size.X,
+                lbuffer.Size.Y,
+                lbuffer.Format,
+                MyGBuffer.Main.SamplesCount,
+                MyGBuffer.Main.SamplesQuality
+            );
+            rc.SetRtvNull();
+            rc.CopyResource(lbuffer, sensorScene);
+            return true;
+        }
+        catch (Exception e)
+        {
+            sensorScene?.Release();
+            sensorScene = null;
+            Fail(e);
+            return false;
+        }
+    }
+
+    public static void EndDirectionalLight(MyRenderContext rc, ISrvTexture shadows)
+    {
+        if (sensorScene == null)
             return;
 
         try
         {
-            ApplyInternal(MyRender11.RC, snap);
+            bool useShadows =
+                MyRender11.Settings.EnableShadows
+                && MyRender11.DebugOverrides.Shadows
+                && MyRender11.Settings.User.ShadowQuality != MyShadowsQuality.DISABLED;
+            rc.PixelShader.Set(useShadows ? noFogLightPixel : noFogLightNoShadow);
+            rc.PixelShader.SetSrv(19, shadows);
+            MyScreenPass.RunFullscreenPixelFreq(rc, sensorScene);
+            if (MyRender11.MultisamplingEnabled)
+            {
+                rc.PixelShader.Set(noFogLightSample);
+                MyScreenPass.RunFullscreenSampleFreq(rc, sensorScene);
+            }
+            rc.PixelShader.SetSrv(19, null);
         }
         catch (Exception e)
         {
-            failed = true;
-            MyLog.Default.Error(
-                $"{Plugin.Name}: Night vision renderer failed, disabling it for this session: {e}"
-            );
+            sensorScene.Release();
+            sensorScene = null;
+            Fail(e);
         }
     }
 
-    private static void ApplyInternal(MyRenderContext rc, NightVisionSnapshot snap)
+    public static void UseSensorForExposure(ref ISrvTexture scene)
+    {
+        if (sensorScene != null)
+            scene = sensorScene;
+    }
+
+    private static void ApplyInternal(
+        MyRenderContext rc,
+        NightVisionSnapshot snap,
+        ISrvTexture sensor
+    )
     {
         if (!EnsureShader())
             return;
@@ -111,6 +203,7 @@ public static class NightVisionRenderer
             rc.PixelShader.SetSrv(23, MyEyeAdaptation.GetExposure());
             rc.PixelShader.SetSrv(24, MyGBuffer.Main.GBuffer0);
             rc.PixelShader.SetSrv(25, MyGBuffer.Main.GBuffer2);
+            rc.PixelShader.SetSrv(26, sensor ?? scene);
 
             MyScreenPass.DrawFullscreenQuad(rc);
 
@@ -120,6 +213,7 @@ public static class NightVisionRenderer
             rc.PixelShader.SetSrv(23, null);
             rc.PixelShader.SetSrv(24, null);
             rc.PixelShader.SetSrv(25, null);
+            rc.PixelShader.SetSrv(26, null);
             rc.DeviceContext.PixelShader.SetConstantBuffer(ConstantsSlot, null);
             rc.SetDepthStencilState(null);
             rc.SetRtvNull();
@@ -153,6 +247,7 @@ public static class NightVisionRenderer
                 config.CreaseLines,
                 config.Fallback
             ),
+            FogVision = new Vector4(config.FogTint.ToVector3(), config.FogVisibility),
         };
 
         if (snap.MaskInterior)
@@ -207,6 +302,32 @@ public static class NightVisionRenderer
 
                 // The registry compiles at ps_5_0 with entry point __pixel_shader and restores it after device resets
                 pixelShader = MyPixelShaders.Create(flattenedPath);
+
+                var noFogPath = Path.Combine(directory, "LightDirNoFog.flat.hlsl");
+                ShaderFlattener.Flatten(
+                    Path.Combine(MyShaderCompiler.ShadersPath, "Lighting", "LightDir.hlsl"),
+                    noFogPath
+                );
+                const string foregroundFog = "output = Fog(shaded, input.depth);";
+                const string skyFog = "output = lerp(skyColor, frame_.Fog.color, frame_.Fog.sky);";
+                var source = File.ReadAllText(noFogPath);
+                if (!source.Contains(foregroundFog) || !source.Contains(skyFog))
+                    throw new InvalidOperationException("The game's directional light shader has changed");
+                File.WriteAllText(
+                    noFogPath,
+                    source.Replace(foregroundFog, "output = shaded;")
+                        .Replace(skyFog, "output = skyColor;")
+                );
+
+                noFogLightPixel = MyPixelShaders.Create(noFogPath);
+                noFogLightSample = MyPixelShaders.Create(
+                    noFogPath,
+                    MyRender11.ShaderSampleFrequencyDefine()
+                );
+                noFogLightNoShadow = MyPixelShaders.Create(
+                    noFogPath,
+                    new[] { new ShaderMacro("NO_SHADOWS", null) }
+                );
             }
             catch (Exception e)
             {
@@ -217,5 +338,13 @@ public static class NightVisionRenderer
             shaderInitialized = true;
             return pixelShader != MyPixelShaders.Id.NULL;
         }
+    }
+
+    private static void Fail(Exception e)
+    {
+        failed = true;
+        MyLog.Default.Error(
+            $"{Plugin.Name}: Night vision renderer failed, disabling it for this session: {e}"
+        );
     }
 }
