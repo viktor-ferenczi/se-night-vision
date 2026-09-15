@@ -24,9 +24,8 @@
         The suit helmet provides it while the helmet is closed, on foot or in seats without glass.
         Cockpits with glass apply it only to what is seen through the glass.
 
-        Hold the light key (L) to toggle it; a tap still toggles the light. Shift + the light key
-        works too. A three state cycle on the light key or a custom hotkey can be chosen in the
-        plugin's Settings, along with the look and the HUD icon.
+        Hold the light key (L) to toggle it; a tap still toggles the light. While active, the night
+        vision icon replaces the current HUD's light icon.
 
         Purely local visual effect, nothing is synced.
 

@@ -59,50 +59,6 @@ public static class NightVisionController
         NightVisionRenderer.Publish(null);
     }
 
-    /// <summary>
-    /// One step of the Cycle activation mode for a tap of the light key.
-    /// Returns whether vanilla should toggle the light.
-    /// </summary>
-    public static bool CycleStep()
-    {
-        bool lightOn = IsLightOn(MySession.Static?.ControlledEntity);
-
-        if (Activated)
-        {
-            // Night vision -> Off. Also switch the light off if something turned it back on.
-            Activated = false;
-            if (lightOn)
-                return true;
-
-            MyGuiAudio.PlaySound(MyGuiSounds.HudClick);
-            return false;
-        }
-
-        if (lightOn)
-        {
-            // Light -> Night vision with the light off, or straight to Off without a source
-            EvaluateSource(out _, out bool available);
-            if (available)
-                Activated = true;
-            return true;
-        }
-
-        // Off -> Light. A seat on a grid without spotlights has no light to cycle through:
-        // vanilla's toggle does nothing there, so go straight to night vision.
-        if (!HasLight(MySession.Static?.ControlledEntity))
-        {
-            EvaluateSource(out _, out bool hasSource);
-            if (hasSource)
-            {
-                Activated = true;
-                MyGuiAudio.PlaySound(MyGuiSounds.HudClick);
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     public static void Update()
     {
         long now = Stopwatch.GetTimestamp();
@@ -256,16 +212,4 @@ public static class NightVisionController
         }
     }
 
-    private static bool HasLight(IMyControllableEntity entity)
-    {
-        switch (entity)
-        {
-            case MyShipController controller:
-                return controller.GridReflectorLights != null
-                    && controller.GridReflectorLights.ReflectorsEnabled
-                        != MyMultipleEnabledEnum.NoObjects;
-            default:
-                return entity != null;
-        }
-    }
 }

@@ -7,8 +7,8 @@ using VRage.Utils;
 namespace ClientPlugin.Patches;
 
 /// <summary>
-/// InitHudStatControls builds the HUD's stat controls from MyHud.HudDefinition, on every HUD
-/// recreation. The night vision icon is added to the definition right before that.
+/// InitHudStatControls builds controls from the active HUD definition. Replace its light styles
+/// immediately beforehand so vanilla and modded layouts keep ownership of the icon geometry.
 /// </summary>
 [HarmonyPatch(typeof(MyGuiScreenHudSpace), "InitHudStatControls")]
 public static class HudStatControlsPatch
@@ -29,7 +29,7 @@ public static class HudStatControlsPatch
             failed = true;
             NightVisionHud.Restore();
             MyLog.Default.Error(
-                $"{Plugin.Name}: Failed to add the HUD indicator, disabling it for this session: {e}"
+                $"{Plugin.Name}: Failed to replace the HUD light icon, disabling it for this session: {e}"
             );
         }
     }

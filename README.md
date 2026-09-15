@@ -35,14 +35,10 @@ between the suit and the cockpit, so it follows the player in and out of seats. 
 
 ### HUD indicator
 
-A night vision icon joins the state icons above the speed indicator (helmet, jetpack, antenna,
-light), in the same size, color and style: it is the 5th icon, right of the light icon, lit while
-night vision renders and dimmed otherwise. It is made by cloning the light icon's entries of the
-vanilla HUD definition, so it scales and fades like its neighbors. The `HUD Indicator` setting can
-move it above the light icon instead, where it only appears while night vision is on, which keeps
-the icon row free for HUD mods, or turn it off. A HUD that is not the base game's `Default`
-definition, or whose light icon is not at its vanilla position, gets no indicator at all. Nothing is synced and there is no
-gameplay effect.
+While night vision is active, its icon replaces the main light glyph in the current HUD definition.
+The light's bottom bar remains independent and still shows whether the light itself is on or off.
+The current HUD supplies the position, size, visibility and fading; no additional state icon or
+HUD-mod-specific layout handling is added. Nothing is synced and there is no gameplay effect.
 
 ### Cockpit glass
 
@@ -60,19 +56,10 @@ box is processed too, since the depth buffer cannot tell it apart from the world
 
 ## Activation
 
-Pick the mode in the Settings:
-
-1. **Long Press** (default): holding the light key past the threshold toggles night vision and
-   leaves the light alone; a tap toggles the light as in vanilla. The key is whatever the light is
-   bound to (L by default), resolved at runtime, so rebinding the light key moves it too.
-2. **Hotkey**: only the hotkey toggles night vision, the light key works as in vanilla.
-3. **Cycle**: each tap of the light key moves Off → Light → Night vision (light off) → Off. Without
-   a source (helmet open on foot) it skips night vision. In a cockpit the light is the ship's
-   spotlights, as in vanilla; on a grid without spotlights it goes Off → Night vision → Off.
-
-The hotkey is Shift plus the light key unless a key is set in the Settings, and the light does not
-toggle together with it. It keeps working in the Long Press and Cycle modes unless that is switched
-off. The gamepad light binding is left as in vanilla. The spectator light is never touched.
+Holding the light key past the configurable threshold toggles night vision and leaves the light
+alone; a tap toggles the light as in vanilla. The key is whatever the light control is bound to (L
+by default), so rebinding the light key moves it too. The gamepad and spectator light bindings are
+left as vanilla.
 
 ## How it works
 

@@ -3,44 +3,15 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using ClientPlugin.Settings;
 using ClientPlugin.Settings.Elements;
-using ClientPlugin.Settings.Tools;
-using VRage.Input;
 using VRageMath;
 
 namespace ClientPlugin;
-
-public enum ActivationMode
-{
-    // A key combination toggles night vision (Shift + the light key unless set explicitly)
-    Hotkey,
-
-    // Tapping the light key toggles the light, holding it toggles night vision
-    LongPress,
-
-    // Each tap of the light key: Off -> Light -> Night vision -> Off
-    Cycle,
-}
-
-public enum HudIndicator
-{
-    // A 5th state icon right of the light icon, always shown and dimmed while off
-    IconRow,
-
-    // Above the light icon, only while night vision is on
-    AboveLightIcon,
-
-    Off,
-}
 
 public class Config : INotifyPropertyChanged
 {
     #region Options
 
-    private ActivationMode activationMode = ActivationMode.LongPress;
-    private bool hotkeyAlwaysActive = true;
-    private Binding hotkey = new Binding(MyKeys.None);
     private float longPressSeconds = 0.5f;
-    private HudIndicator hudIndicator = HudIndicator.IconRow;
 
     private Color tint = new Color(0.35f, 1f, 0.7f);
     private float gain = 6f;
@@ -66,51 +37,17 @@ public class Config : INotifyPropertyChanged
     public readonly string Title = "Night Vision";
 
     [Separator("Activation")]
-    [Dropdown(
-        description: "Long Press: holding the light key toggles night vision, a tap toggles the light\nHotkey: only the hotkey toggles night vision\nCycle: each tap of the light key goes Off, Light, Night vision"
-    )]
-    public ActivationMode ActivationMode
-    {
-        get => activationMode;
-        set => SetField(ref activationMode, value);
-    }
-
-    [Checkbox(description: "Keep the hotkey working in the Long Press and Cycle modes as well")]
-    public bool HotkeyAlwaysActive
-    {
-        get => hotkeyAlwaysActive;
-        set => SetField(ref hotkeyAlwaysActive, value);
-    }
-
-    [Keybind(
-        description: "Night vision hotkey. Unbind it (right click) to use Shift plus whatever key the light is bound to."
-    )]
-    public Binding Hotkey
-    {
-        get => hotkey;
-        set => SetField(ref hotkey, value);
-    }
-
     [Slider(
         0.2f,
         1.5f,
         0.05f,
         SliderAttribute.SliderType.Float,
-        description: "How long the light key has to be held in the Long Press mode (seconds)"
+        description: "How long the light key has to be held to toggle night vision (seconds)"
     )]
     public float LongPressSeconds
     {
         get => longPressSeconds;
         set => SetField(ref longPressSeconds, value);
-    }
-
-    [Dropdown(
-        description: "Icon Row: a 5th icon next to the light icon, dimmed while off\nAbove Light Icon: above the light icon, only while night vision is on (avoids conflicts with HUD mods)\nOff: no indicator\nModded HUDs never get an indicator."
-    )]
-    public HudIndicator HudIndicator
-    {
-        get => hudIndicator;
-        set => SetField(ref hudIndicator, value);
     }
 
     [Separator("Look")]

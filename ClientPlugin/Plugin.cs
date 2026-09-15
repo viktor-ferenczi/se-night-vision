@@ -134,9 +134,6 @@ public class Plugin : IPlugin
     {
         switch (e.PropertyName)
         {
-            case nameof(Config.HudIndicator):
-                NightVisionHud.Refresh();
-                break;
             case nameof(Config.ForceGlass):
             case nameof(Config.ForceNoGlass):
                 GlassDetector.ClearCache();
