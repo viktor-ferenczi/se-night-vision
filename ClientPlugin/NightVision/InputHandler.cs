@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using Sandbox;
 using Sandbox.Game;
-using Sandbox.Game.World;
 using VRage.Input;
 
 namespace ClientPlugin.NightVision;
@@ -24,19 +23,17 @@ public static class InputHandler
         inGameplayInput = true;
         pendingTap = false;
 
-        var session = MySession.Static;
-        if (inputDisabled || session?.ControlledEntity == null || MySandboxGame.IsPaused)
+        if (
+            inputDisabled
+            || MySandboxGame.IsPaused
+            || NightVisionController.EvaluateMode() == NightVisionMode.None
+        )
         {
             pressStart = -1;
             return;
         }
 
-        var input = MyInput.Static;
-
-        if (!session.IsCameraUserControlledSpectator())
-            TrackLongPress(input);
-        else
-            pressStart = -1;
+        TrackLongPress(MyInput.Static);
     }
 
     public static void EndFrame()
@@ -77,8 +74,7 @@ public static class InputHandler
     /// <summary>Rewrites vanilla's answer to "was the light key pressed" for this frame.</summary>
     public static bool FilterLight(bool vanilla)
     {
-        var session = MySession.Static;
-        if (session == null || session.IsCameraUserControlledSpectator())
+        if (NightVisionController.EvaluateMode() == NightVisionMode.None)
             return vanilla;
 
         var input = MyInput.Static;

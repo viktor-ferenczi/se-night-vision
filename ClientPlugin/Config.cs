@@ -14,12 +14,20 @@ public enum HelmetVisionMode
     Auto,
 }
 
+public enum VisionMode
+{
+    Passive,
+    Active,
+}
+
 public class Config : INotifyPropertyChanged
 {
     #region Options
 
     private float longPressSeconds = 0.5f;
     private HelmetVisionMode helmetMode = HelmetVisionMode.Active;
+    private VisionMode spectatorMode = VisionMode.Passive;
+    private VisionMode cameraMode = VisionMode.Active;
 
     private Color tint = new Color(0.35f, 1f, 0.7f);
     private float gain = 6f;
@@ -60,6 +68,20 @@ public class Config : INotifyPropertyChanged
     {
         get => helmetMode;
         set => SetField(ref helmetMode, value);
+    }
+
+    [Dropdown(description: "Mode used in third person and spectator/free cameras")]
+    public VisionMode SpectatorMode
+    {
+        get => spectatorMode;
+        set => SetField(ref spectatorMode, value);
+    }
+
+    [Dropdown(description: "Mode used by ship cameras, remote views and turrets")]
+    public VisionMode CameraMode
+    {
+        get => cameraMode;
+        set => SetField(ref cameraMode, value);
     }
 
     [Separator("Look")]

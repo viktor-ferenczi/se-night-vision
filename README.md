@@ -27,11 +27,13 @@ crease lines, grain, vignette, washout and fade time are set in the plugin's Set
 | First person, helmet closed, on foot | Helmet | Configured mode; `Auto` uses active |
 | First person, helmet closed, controlling a vehicle | Helmet | Configured mode; `Auto` uses passive |
 | First person, helmet open | Passive | Only through a clear-to-dark pair of `GLASS` surfaces |
-| Third person, remote control, turrets, cameras, spectator | none | Normal rendering |
+| Ship cameras, remote views and turrets | Camera | Configured camera mode; active by default |
+| Third person and spectator/free camera | Free camera | Configured spectator mode; passive by default |
 
 Activating night vision only arms it; the table decides how it renders. The HUD and GUI are never
 processed. The helmet mode setting applies to both night vision and fog vision when the helmet is
-closed; choosing Passive or Active forces that mode wherever helmet vision is available.
+closed; choosing Passive or Active forces that mode wherever helmet vision is available. Camera
+and spectator views use their respective configured modes.
 
 ### HUD indicator
 
@@ -51,8 +53,8 @@ subtype lists. A clear-only material does not count, and a nearer dark face bloc
 
 Holding the light key past the configurable threshold toggles night vision and leaves the light
 alone; a tap toggles the light as in vanilla. The key is whatever the light control is bound to (L
-by default), so rebinding the light key moves it too. The gamepad and spectator light bindings are
-left as vanilla.
+by default), so rebinding the light key moves it too. The gamepad is left as vanilla. Spectator
+light input uses the same tap/hold behavior.
 
 ## How it works
 

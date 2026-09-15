@@ -113,29 +113,40 @@ public static class NightVisionController
     public static NightVisionMode EvaluateMode()
     {
         var session = MySession.Static;
-        var controlled = session?.ControlledEntity;
-        if (controlled == null || !ReferenceEquals(session.CameraController, controlled))
+        if (session == null)
             return NightVisionMode.None;
 
         if (session.GetCameraControllerEnum() != MyCameraControllerEnum.Entity)
-            return NightVisionMode.None;
+            return Config.Current.SpectatorMode == VisionMode.Active
+                ? NightVisionMode.Active
+                : NightVisionMode.Passive;
 
-        MyCharacter character;
-        switch (controlled)
+        var camera = session.CameraController;
+        switch (camera)
         {
-            case MyCharacter controlledCharacter:
-                character = controlledCharacter;
-                break;
+            case MyCharacter character:
+                return EvaluateHelmetMode(character, false);
             case MyCockpit cockpit:
-                character = cockpit.Pilot ?? session.LocalCharacter;
-                break;
+                return EvaluateHelmetMode(cockpit.Pilot ?? session.LocalCharacter, true);
             default:
-                return NightVisionMode.None;
+                if (camera == null)
+                    return NightVisionMode.None;
+                return Config.Current.CameraMode == VisionMode.Active
+                    ? NightVisionMode.Active
+                    : NightVisionMode.Passive;
         }
+    }
 
+    private static NightVisionMode EvaluateHelmetMode(MyCharacter character, bool inVehicle)
+    {
         if (!IsHelmetClosed(character))
             return NightVisionMode.Passive;
 
+        return EvaluateHelmetSetting(inVehicle);
+    }
+
+    private static NightVisionMode EvaluateHelmetSetting(bool inVehicle)
+    {
         switch (Config.Current.HelmetMode)
         {
             case HelmetVisionMode.Passive:
@@ -143,9 +154,7 @@ public static class NightVisionController
             case HelmetVisionMode.Active:
                 return NightVisionMode.Active;
             default:
-                return controlled is MyCharacter
-                    ? NightVisionMode.Active
-                    : NightVisionMode.Passive;
+                return inVehicle ? NightVisionMode.Passive : NightVisionMode.Active;
         }
     }
 
