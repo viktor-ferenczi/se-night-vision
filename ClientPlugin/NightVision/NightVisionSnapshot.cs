@@ -7,6 +7,7 @@ public sealed class NightVisionSnapshot
 {
     public float Blend;
     public float Flash;
-
-    public bool Passive;
+    public float ActiveBlend;
+    public bool FlashActive;
+    public bool Sliding;
 }

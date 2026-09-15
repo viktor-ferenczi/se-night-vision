@@ -208,7 +208,8 @@ public class Config : INotifyPropertyChanged
         1f,
         0.05f,
         SliderAttribute.SliderType.Float,
-        description: "Fade and flash duration when switching on and off (seconds)"
+        label: "Animation time",
+        description: "Flash, fade and visor animation duration (seconds)"
     )]
     public float FadeSeconds
     {

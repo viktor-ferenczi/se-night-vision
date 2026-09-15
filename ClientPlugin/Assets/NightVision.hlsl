@@ -14,7 +14,8 @@ cbuffer NightVisionConstants : register(b8)
 {
     float4 TintGain;    // rgb = tint, w = luminance gain
     float4 Look;        // x = outline strength, y = noise, z = vignette, w = highlight washout
-    float4 Anim;        // x = blend (fade), y = flash, z = time in seconds, w = passive mode
+    float4 Anim;        // x = on/off blend, y = flash, z = time, w = active-mode progress
+    float4 Transition;  // x = flash active-only pixels, y = sliding suit visor
     float4 Extra;       // x = natural light threshold, y = sky gain, z = crease lines, w = IR fallback
     float4 FogVision;   // rgb = fog-vision tint, w = remaining visibility where it begins
 };
@@ -132,13 +133,18 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
     float4 scene = SceneTex.Load(int3(texel, 0));
     float centerDepth = LinearDepth(texel);
 
-    float glassCoverage = 1;
-    if (Anim.w > 0.5)
+    float activeCoverage = Anim.w;
+    if (Transition.y > 0.5 && Anim.w > 0 && Anim.w < 1)
+        activeCoverage = 1 - smoothstep(Anim.w - 0.015, Anim.w + 0.015, uv.y);
+
+    float glassCoverage = 0;
+    if (Anim.w < 1)
     {
         float2 glassDepth = GlassMask.Load(int3(texel, 0));
         glassCoverage = glassDepth.y > 0 && glassDepth.x >= glassDepth.y ? 1 : 0;
     }
-    if (glassCoverage <= 0)
+    float activeOnlyCoverage = activeCoverage * (1 - glassCoverage);
+    if (glassCoverage <= 0 && activeOnlyCoverage <= 0)
     {
         output = scene;
         return;
@@ -161,7 +167,7 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
     }
 
     // Apply the sensor only where the estimated lighting is dark. The final composite uses this
-    // mask so outlines, grain, vignette, flash and the IR illuminator leave light areas alone.
+    // mask so outlines, grain, vignette and the IR illuminator leave light areas alone.
     float darkness = 1;
     if (Extra.x > 0)
         darkness = 1 - smoothstep(0, Extra.x, lightLevel);
@@ -217,10 +223,6 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
     nightVision *= vignette;
     weatherVision *= vignette;
 
-    // Switch-on flash.
-    nightVision = nightVision * (1 + Anim.y * 3) + TintGain.rgb * Anim.y * 0.6;
-    weatherVision = weatherVision * (1 + Anim.y * 3) + FogVision.rgb * Anim.y * 0.6;
-
     // Keep the weathered scene intact. Darkness uses the existing screen overlay, while fog
     // independently adds a blue sensor signal once visibility falls below its configured limit.
     // Planetary atmospheres are a separate additive pass and do not contribute to frame_.Fog.
@@ -235,8 +237,16 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
         ? saturate((FogVision.w - visibility) / FogVision.w)
         : 0;
     float greenWeight = darkness * (1 - badWeather);
-    float3 result = exposed + saturate(Anim.x) * glassCoverage
-        * (nightVision * (1 - saturate(exposed)) * greenWeight + weatherVision * badWeather);
+    float3 vision = nightVision * (1 - saturate(exposed)) * greenWeight
+        + weatherVision * badWeather;
+    float3 flashColor = TintGain.rgb * (1 - saturate(exposed)) * greenWeight
+        + FogVision.rgb * badWeather;
+    float coverage = glassCoverage + activeOnlyCoverage;
+    float activeFlash = Transition.x > 0.5 ? (1 - Anim.w) * (1 - Anim.w) : 0;
+    float flashCoverage = glassCoverage * Anim.y
+        + activeOnlyCoverage * max(Anim.y, activeFlash);
+    float3 result = exposed + saturate(Anim.x)
+        * (coverage * vision + flashCoverage * (vision * 3 + flashColor * 0.6));
 
     output = float4(result / max(exposure, 1e-6), scene.a);
 }

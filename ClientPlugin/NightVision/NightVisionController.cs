@@ -23,7 +23,7 @@ public enum NightVisionMode
 }
 
 /// <summary>
-/// Game-thread state machine: the activation toggle, visor mode and fade animation.
+/// Game-thread state machine: the activation toggle, visor mode and animation.
 /// </summary>
 public static class NightVisionController
 {
@@ -34,7 +34,10 @@ public static class NightVisionController
 
     private static float blend;
     private static float flash;
+    private static float activeBlend;
+    private static bool sliding;
     private static bool wasOn;
+    private static bool? wasHelmetClosed;
     private static bool loggedActivated;
     private static bool loggedLight;
     private static long lastTimestamp;
@@ -50,7 +53,10 @@ public static class NightVisionController
         Activated = false;
         blend = 0f;
         flash = 0f;
+        activeBlend = 0f;
+        sliding = false;
         wasOn = false;
+        wasHelmetClosed = null;
         Mode = NightVisionMode.None;
         NightVisionRenderer.Publish(null);
     }
@@ -63,7 +69,14 @@ public static class NightVisionController
         lastTimestamp = now;
         dt = Math.Min(dt, 0.1f);
 
+        var previousMode = Mode;
         var mode = EvaluateMode();
+        var character = MySession.Static?.LocalCharacter;
+        bool? helmetClosed = character == null ? null : IsHelmetClosed(character);
+        bool helmetChanged = helmetClosed.HasValue
+            && wasHelmetClosed.HasValue
+            && helmetClosed.Value != wasHelmetClosed.Value;
+        wasHelmetClosed = helmetClosed;
         bool light = IsLightOn(MySession.Static?.ControlledEntity);
         if (mode != Mode || Activated != loggedActivated || light != loggedLight)
         {
@@ -78,21 +91,29 @@ public static class NightVisionController
 
         var config = Config.Current;
         bool on = Activated && mode != NightVisionMode.None;
-        float fade = Math.Max(config.FadeSeconds, 0.001f);
+        float duration = Math.Max(config.FadeSeconds, 0.001f);
+        float step = dt / duration;
 
-        if (mode == NightVisionMode.None)
+        if (on && wasOn && mode != previousMode)
+            sliding = helmetChanged;
+
+        if (mode != NightVisionMode.None && ((!wasOn && on) || blend <= 0f))
         {
-            blend = 0f;
-            flash = 0f;
-            wasOn = Activated;
+            activeBlend = mode == NightVisionMode.Active ? 1f : 0f;
+            sliding = false;
         }
-
+        else if (on)
+            activeBlend = MathHelper.Clamp(
+                activeBlend + (mode == NightVisionMode.Active ? step : -step),
+                0f,
+                1f
+            );
         if (on && !wasOn)
             flash = 1f;
-        wasOn = on;
 
-        blend = MathHelper.Clamp(blend + (on ? dt : -dt) / fade, 0f, 1f);
-        flash = Math.Max(flash - dt / (fade * 1.5f), 0f);
+        blend = MathHelper.Clamp(blend + (on ? step : -step), 0f, 1f);
+        flash = Math.Max(flash - step / 1.5f, 0f);
+        wasOn = on;
 
         if (blend <= 0f)
         {
@@ -104,7 +125,9 @@ public static class NightVisionController
         {
             Blend = blend,
             Flash = flash * flash,
-            Passive = mode == NightVisionMode.Passive,
+            ActiveBlend = activeBlend,
+            FlashActive = !sliding && mode == NightVisionMode.Active,
+            Sliding = sliding,
         };
 
         NightVisionRenderer.Publish(snapshot);

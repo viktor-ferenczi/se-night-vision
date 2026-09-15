@@ -79,7 +79,7 @@ public static class GlassMaskRenderer
         {
             mask?.Release();
             mask = null;
-            if (failed || !NightVisionRenderer.Passive || shaderPath == null)
+            if (failed || !NightVisionRenderer.NeedsGlassMask || shaderPath == null)
                 return;
 
             int samples = MyRender11.DebugOverrides.OIT ? 1 : MyGBuffer.Main.SamplesCount;

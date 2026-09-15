@@ -15,10 +15,12 @@ Elite Dangerous. It is built into the suit helmet and works passively through gl
 - Surfaces lit well enough by sunlight, ambient light or local lights keep their natural color.
 - Grain and a vignette.
 - Bright light sources overload the sensor and bloom instead of clipping.
-- A short fade and flash when it switches on and off.
+- A short flash when it switches on and a fade when it switches off. Raising or lowering the suit
+  helmet slides its active vision up or down. Other mode changes flash or fade only the active
+  portion, preserving passive vision through glass.
 
 Tint, gain, fallback flood strength, sky gain, the natural light threshold, outline strength,
-crease lines, grain, vignette, washout and fade time are set in the plugin's Settings.
+crease lines, grain, vignette, washout and animation time are set in the plugin's Settings.
 
 ## When it applies
 
@@ -59,7 +61,7 @@ light input uses the same tap/hold behavior.
 ## How it works
 
 - `NightVisionController` runs on the game thread once per drawn frame, from a postfix on
-  `MyGuiScreenGamePlay.Draw`. It decides the source, animates the fade and publishes a snapshot.
+  `MyGuiScreenGamePlay.Draw`. It decides the source, advances animations and publishes a snapshot.
 - `NightVisionRenderer` runs a pixel shader over the HDR light buffer from postfixes on
   `MyEyeAdaptation.Run` and `MyEyeAdaptation.ConstantExposure`, so bloom and tone mapping see the
   amplified image. It works in exposed space, so the look does not depend on what eye adaptation

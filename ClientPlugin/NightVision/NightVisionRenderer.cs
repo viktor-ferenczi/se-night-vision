@@ -25,6 +25,7 @@ public static class NightVisionRenderer
         public Vector4 TintGain;
         public Vector4 Look;
         public Vector4 Anim;
+        public Vector4 Transition;
         public Vector4 Extra;
         public Vector4 FogVision;
     }
@@ -47,7 +48,7 @@ public static class NightVisionRenderer
     private static MyPixelShaders.Id noFogLightNoShadow = MyPixelShaders.Id.NULL;
     private static IBorrowedRtvTexture sensorScene;
 
-    internal static bool Passive => snapshot?.Passive == true;
+    internal static bool NeedsGlassMask => snapshot?.ActiveBlend < 1f;
 
     public static void Publish(NightVisionSnapshot value)
     {
@@ -159,7 +160,7 @@ public static class NightVisionRenderer
 
     public static void UseSensorForExposure(ref ISrvTexture scene)
     {
-        if (sensorScene != null && !Passive)
+        if (sensorScene != null && snapshot?.ActiveBlend > 0f)
             scene = sensorScene;
     }
 
@@ -244,7 +245,13 @@ public static class NightVisionRenderer
                 snap.Blend,
                 snap.Flash,
                 (float)(MyCommon.FrameTime.Seconds % 3600.0),
-                snap.Passive ? 1f : 0f
+                snap.ActiveBlend
+            ),
+            Transition = new Vector4(
+                snap.FlashActive ? 1f : 0f,
+                snap.Sliding ? 1f : 0f,
+                0f,
+                0f
             ),
             Extra = new Vector4(
                 config.NaturalLightThreshold,
