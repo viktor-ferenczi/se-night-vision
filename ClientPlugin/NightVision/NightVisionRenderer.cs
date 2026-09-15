@@ -50,6 +50,8 @@ public static class NightVisionRenderer
 
     internal static bool NeedsGlassMask => snapshot?.ActiveBlend < 1f;
 
+    public static void Initialize() => MyRender11.EnqueueUpdate(() => EnsureShader());
+
     public static void Publish(NightVisionSnapshot value)
     {
         snapshot = value;
@@ -62,7 +64,7 @@ public static class NightVisionRenderer
         sensorScene = null;
         var glassMask = GlassMaskRenderer.TakeMask();
 
-        if (failed)
+        if (failed || !EnsureShader())
         {
             sensor?.Release();
             glassMask?.Release();
@@ -171,9 +173,6 @@ public static class NightVisionRenderer
         ISrvTexture glassMask
     )
     {
-        if (!EnsureShader())
-            return;
-
         var lbuffer = MyGBuffer.Main.LBuffer;
         var scene = MyManagers.RwTexturesPool.BorrowRtv(
             "NightVision.Scene",

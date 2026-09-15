@@ -43,6 +43,7 @@ public class Plugin : IPlugin
         if (NightVisionHud.IconPath == null)
             ExtractEmbeddedIcon();
         GlassMaskRenderer.Initialize();
+        NightVisionRenderer.Initialize();
 
         var harmony = new Harmony(Name);
         harmony.PatchAll(Assembly.GetExecutingAssembly());
