@@ -15,7 +15,7 @@ cbuffer NightVisionConstants : register(b8)
     float4 TintGain;    // rgb = tint, w = luminance gain
     float4 Look;        // x = outline strength, y = noise, z = vignette, w = highlight washout
     float4 Anim;        // x = on/off blend, y = flash, z = time, w = active-mode progress
-    float4 Transition;  // x = flash active-only pixels, y = sliding suit visor
+    float4 Transition;  // x = flash active-only pixels, y = sliding visor, z = foliage highlights
     float4 Extra;       // x = natural light threshold, y = sky gain, z = crease lines, w = IR fallback
     float4 FogVision;   // rgb = fog-vision tint, w = remaining visibility where it begins
 };
@@ -70,11 +70,7 @@ bool IsFoliage(int2 texel, float depth)
 
 float MaskedDepthEdge(float centerDepth, float2 depths, bool2 foliage, bool centerFoliage)
 {
-    if (centerFoliage)
-        return max(!foliage.x ? centerDepth - depths.x : 0, 0)
-             + max(!foliage.y ? centerDepth - depths.y : 0, 0);
-
-    if (!any(foliage))
+    if (centerFoliage || !any(foliage))
         return abs(depths.x + depths.y - 2 * centerDepth);
 
     // An edge involving foliage is valid only when the foliage is behind solid geometry.
@@ -107,22 +103,18 @@ float EdgeStrength(int2 texel, float centerDepth)
 
     // Creases and panel lines: normals that change direction between neighbors,
     // checked on both sides so the line is centered and reads as a contour.
-    float normalEdge = 0;
-    if (!centerFoliage)
-    {
-        float3 n = Normal(texel);
-        float bend = (1 - dot(n, rc ? n : Normal(texel + int2(1, 0))))
-                   + (1 - dot(n, lc ? n : Normal(texel + int2(-1, 0))))
-                   + (1 - dot(n, dc ? n : Normal(texel + int2(0, 1))))
-                   + (1 - dot(n, uc ? n : Normal(texel + int2(0, -1))));
-        normalEdge = saturate(bend * 2 - 0.15);
-        // Fade with distance, where the normals of rough terrain turn into noise.
-        normalEdge *= saturate(1.5 - centerDepth / 1500);
-    }
+    float3 n = Normal(texel);
+    float bend = (1 - dot(n, rc == centerFoliage ? Normal(texel + int2(1, 0)) : n))
+               + (1 - dot(n, lc == centerFoliage ? Normal(texel + int2(-1, 0)) : n))
+               + (1 - dot(n, dc == centerFoliage ? Normal(texel + int2(0, 1)) : n))
+               + (1 - dot(n, uc == centerFoliage ? Normal(texel + int2(0, -1)) : n));
+    float normalEdge = saturate(bend * 2 - 0.15);
+    // Fade with distance, where the normals of rough terrain turn into noise.
+    normalEdge *= saturate(1.5 - centerDepth / 1500);
 
     // Crease lines are weighted separately: at 0 only silhouettes and real steps between surfaces
     // are outlined, not the bevels every armor block has along its borders.
-    return max(depthEdge, normalEdge * Extra.z);
+    return max(depthEdge, normalEdge * Extra.z) * (centerFoliage ? Transition.z : 1);
 }
 
 void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
@@ -207,10 +199,14 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
 
     // Bright contour lines, drawn as a light cyan glow on top of the tinted image.
     // The right and lower neighbors' edges count at a third of their strength, which widens the
-    // lines to about 1.3 pixels: one full pixel with a faint second one.
+    // lines to about 1.3 pixels. Foliage scale applies again here to reduce that widening too.
+    float rightDepth = LinearDepth(texel + int2(1, 0));
+    float downDepth = LinearDepth(texel + int2(0, 1));
+    float rightWidth = IsFoliage(texel + int2(1, 0), rightDepth) ? Transition.z : 1;
+    float downWidth = IsFoliage(texel + int2(0, 1), downDepth) ? Transition.z : 1;
     float edgeRaw = max(EdgeStrength(texel, centerDepth),
-                        0.33 * max(EdgeStrength(texel + int2(1, 0), LinearDepth(texel + int2(1, 0))),
-                                   EdgeStrength(texel + int2(0, 1), LinearDepth(texel + int2(0, 1)))));
+                        0.33 * max(rightWidth * EdgeStrength(texel + int2(1, 0), rightDepth),
+                                   downWidth * EdgeStrength(texel + int2(0, 1), downDepth)));
     float edge = edgeRaw * Look.x;
     float3 edgeColor = lerp(TintGain.rgb, 1, 0.35);
     float3 weatherEdgeColor = lerp(FogVision.rgb, 1, 0.35);

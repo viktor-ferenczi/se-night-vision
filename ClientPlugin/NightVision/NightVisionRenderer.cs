@@ -250,7 +250,7 @@ public static class NightVisionRenderer
             Transition = new Vector4(
                 snap.FlashActive ? 1f : 0f,
                 snap.Sliding ? 1f : 0f,
-                0f,
+                config.FoliageHighlightScale,
                 0f
             ),
             Extra = new Vector4(

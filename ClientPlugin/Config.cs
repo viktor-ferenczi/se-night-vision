@@ -37,6 +37,7 @@ public class Config : INotifyPropertyChanged
     private Color fogTint = new Color(0.35f, 0.7f, 1f);
     private float fogVisibility = 0.75f;
     private float outlineStrength = 1.5f;
+    private float foliageHighlightScale = 0.25f;
     private float creaseLines = 0f;
     private float noise = 0.5f;
     private float vignette = 0.6f;
@@ -155,6 +156,20 @@ public class Config : INotifyPropertyChanged
     {
         get => outlineStrength;
         set => SetField(ref outlineStrength, value);
+    }
+
+    [Slider(
+        0f,
+        1f,
+        0.05f,
+        SliderAttribute.SliderType.Float,
+        label: "Foliage highlights",
+        description: "Size and opacity of contour lines on grass, bushes and trees (0 disables them)"
+    )]
+    public float FoliageHighlightScale
+    {
+        get => foliageHighlightScale;
+        set => SetField(ref foliageHighlightScale, value);
     }
 
     [Slider(

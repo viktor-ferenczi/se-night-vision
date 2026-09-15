@@ -10,7 +10,8 @@ Elite Dangerous. It is built into the suit helmet and works passively through gl
 - A monochrome teal-cyan tint by default.
 - Thin bright contour lines on silhouettes, horizons and real steps between surfaces, from an
   edge detect on depth. Crease and panel lines from the normals, such as the edges of every
-  armor block, are off by default and can be mixed in. Grass, bushes and trees do not receive them.
+  armor block, are off by default and can be mixed in. Grass, bushes and trees receive smaller,
+  fainter highlights to keep their many edges under control.
 - The sky gets little amplification, so space stays black with the stars showing.
 - Surfaces lit well enough by sunlight, ambient light or local lights keep their natural color.
 - Grain and a vignette.
@@ -19,8 +20,8 @@ Elite Dangerous. It is built into the suit helmet and works passively through gl
   helmet slides its active vision up or down. Other mode changes flash or fade only the active
   portion, preserving passive vision through glass.
 
-Tint, gain, fallback flood strength, sky gain, the natural light threshold, outline strength,
-crease lines, grain, vignette, washout and animation time are set in the plugin's Settings.
+Tint, gain, fallback flood strength, sky gain, the natural light threshold, outline and foliage
+highlight strength, crease lines, grain, vignette, washout and animation time are set in Settings.
 
 ## When it applies
 
