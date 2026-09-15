@@ -25,10 +25,6 @@ public static class NightVisionRenderer
         public Vector4 TintGain;
         public Vector4 Look;
         public Vector4 Anim;
-        public Vector4 BoxCenter;
-        public Vector4 BoxAxisX;
-        public Vector4 BoxAxisY;
-        public Vector4 BoxAxisZ;
         public Vector4 Extra;
         public Vector4 FogVision;
     }
@@ -51,6 +47,8 @@ public static class NightVisionRenderer
     private static MyPixelShaders.Id noFogLightNoShadow = MyPixelShaders.Id.NULL;
     private static IBorrowedRtvTexture sensorScene;
 
+    internal static bool Passive => snapshot?.Passive == true;
+
     public static void Publish(NightVisionSnapshot value)
     {
         snapshot = value;
@@ -61,10 +59,12 @@ public static class NightVisionRenderer
     {
         var sensor = sensorScene;
         sensorScene = null;
+        var glassMask = GlassMaskRenderer.TakeMask();
 
         if (failed)
         {
             sensor?.Release();
+            glassMask?.Release();
             return;
         }
 
@@ -72,12 +72,13 @@ public static class NightVisionRenderer
         if (snap == null || snap.Blend <= 0f)
         {
             sensor?.Release();
+            glassMask?.Release();
             return;
         }
 
         try
         {
-            ApplyInternal(MyRender11.RC, snap, sensor);
+            ApplyInternal(MyRender11.RC, snap, sensor, glassMask);
         }
         catch (Exception e)
         {
@@ -86,6 +87,7 @@ public static class NightVisionRenderer
         finally
         {
             sensor?.Release();
+            glassMask?.Release();
         }
     }
 
@@ -157,14 +159,15 @@ public static class NightVisionRenderer
 
     public static void UseSensorForExposure(ref ISrvTexture scene)
     {
-        if (sensorScene != null)
+        if (sensorScene != null && !Passive)
             scene = sensorScene;
     }
 
     private static void ApplyInternal(
         MyRenderContext rc,
         NightVisionSnapshot snap,
-        ISrvTexture sensor
+        ISrvTexture sensor,
+        ISrvTexture glassMask
     )
     {
         if (!EnsureShader())
@@ -204,6 +207,7 @@ public static class NightVisionRenderer
             rc.PixelShader.SetSrv(24, MyGBuffer.Main.GBuffer0);
             rc.PixelShader.SetSrv(25, MyGBuffer.Main.GBuffer2);
             rc.PixelShader.SetSrv(26, sensor ?? scene);
+            rc.PixelShader.SetSrv(27, glassMask);
 
             MyScreenPass.DrawFullscreenQuad(rc);
 
@@ -214,6 +218,7 @@ public static class NightVisionRenderer
             rc.PixelShader.SetSrv(24, null);
             rc.PixelShader.SetSrv(25, null);
             rc.PixelShader.SetSrv(26, null);
+            rc.PixelShader.SetSrv(27, null);
             rc.DeviceContext.PixelShader.SetConstantBuffer(ConstantsSlot, null);
             rc.SetDepthStencilState(null);
             rc.SetRtvNull();
@@ -239,7 +244,7 @@ public static class NightVisionRenderer
                 snap.Blend,
                 snap.Flash,
                 (float)(MyCommon.FrameTime.Seconds % 3600.0),
-                snap.MaskInterior ? 1f : 0f
+                snap.Passive ? 1f : 0f
             ),
             Extra = new Vector4(
                 config.NaturalLightThreshold,
@@ -249,24 +254,6 @@ public static class NightVisionRenderer
             ),
             FogVision = new Vector4(config.FogTint.ToVector3(), config.FogVisibility),
         };
-
-        if (snap.MaskInterior)
-        {
-            var center = (Vector3)(snap.BoxCenter - MyRender11.Environment.Matrices.CameraPosition);
-            constants.BoxCenter = new Vector4(center, 0f);
-            constants.BoxAxisX = new Vector4(
-                Vector3.Normalize(snap.BoxAxisX),
-                snap.BoxHalfExtents.X
-            );
-            constants.BoxAxisY = new Vector4(
-                Vector3.Normalize(snap.BoxAxisY),
-                snap.BoxHalfExtents.Y
-            );
-            constants.BoxAxisZ = new Vector4(
-                Vector3.Normalize(snap.BoxAxisZ),
-                snap.BoxHalfExtents.Z
-            );
-        }
 
         return constants;
     }

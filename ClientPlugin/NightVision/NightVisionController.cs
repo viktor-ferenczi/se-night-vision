@@ -15,24 +15,21 @@ using IMyControllableEntity = Sandbox.Game.Entities.IMyControllableEntity;
 
 namespace ClientPlugin.NightVision;
 
-public enum NightVisionSource
+public enum NightVisionMode
 {
     None,
-    Helmet,
-    Cockpit,
+    Passive,
+    Active,
 }
 
 /// <summary>
-/// Game-thread state machine: the activation toggle, which source applies to the current view
-/// and the fade animation. Runs once per drawn frame and publishes a snapshot for the renderer.
+/// Game-thread state machine: the activation toggle, visor mode and fade animation.
 /// </summary>
 public static class NightVisionController
 {
-    // One shared toggle for the suit and the cockpit, so the state follows the player in and out of seats
     public static bool Activated { get; private set; }
 
-    public static NightVisionSource Source { get; private set; }
-    public static bool Available { get; private set; }
+    public static NightVisionMode Mode { get; private set; }
     public static bool Rendering => blend > 0f;
 
     private static float blend;
@@ -41,7 +38,6 @@ public static class NightVisionController
     private static bool loggedActivated;
     private static bool loggedLight;
     private static long lastTimestamp;
-    private static NightVisionSnapshot lastSnapshot;
 
     public static void Toggle()
     {
@@ -55,7 +51,7 @@ public static class NightVisionController
         blend = 0f;
         flash = 0f;
         wasOn = false;
-        lastSnapshot = null;
+        Mode = NightVisionMode.None;
         NightVisionRenderer.Publish(null);
     }
 
@@ -67,33 +63,25 @@ public static class NightVisionController
         lastTimestamp = now;
         dt = Math.Min(dt, 0.1f);
 
-        var cockpit = EvaluateSource(out var source, out bool available);
+        var mode = EvaluateMode();
         bool light = IsLightOn(MySession.Static?.ControlledEntity);
-        if (
-            source != Source
-            || available != Available
-            || Activated != loggedActivated
-            || light != loggedLight
-        )
+        if (mode != Mode || Activated != loggedActivated || light != loggedLight)
         {
             loggedActivated = Activated;
             loggedLight = light;
             MyLog.Default.WriteLine(
-                $"{Plugin.Name}: activated={Activated} source={source} available={available} light={light} controlled={MySession.Static?.ControlledEntity?.GetType().Name} cockpit={cockpit?.BlockDefinition?.Id.SubtypeName} helmetEnabled={MySession.Static?.LocalCharacter?.OxygenComponent?.HelmetEnabled}"
+                $"{Plugin.Name}: activated={Activated} mode={mode} light={light} controlled={MySession.Static?.ControlledEntity?.GetType().Name} helmetEnabled={MySession.Static?.LocalCharacter?.OxygenComponent?.HelmetEnabled}"
             );
         }
 
-        Source = source;
-        Available = available;
+        Mode = mode;
 
         var config = Config.Current;
-        bool on = Activated && available;
+        bool on = Activated && mode != NightVisionMode.None;
         float fade = Math.Max(config.FadeSeconds, 0.001f);
 
-        if (source == NightVisionSource.None)
+        if (mode == NightVisionMode.None)
         {
-            // Third person, remote control, turrets and spectator are not seen through a visor or
-            // glass: off from the first frame, no fade. Coming back is not a switch-on, so no flash.
             blend = 0f;
             flash = 0f;
             wasOn = Activated;
@@ -108,84 +96,44 @@ public static class NightVisionController
 
         if (blend <= 0f)
         {
-            lastSnapshot = null;
             NightVisionRenderer.Publish(null);
             return;
         }
 
-        // While fading out after the source went away, keep the last known masking
-        var snapshot = new NightVisionSnapshot { Blend = blend, Flash = flash * flash };
-
-        if (on)
+        var snapshot = new NightVisionSnapshot
         {
-            if (source == NightVisionSource.Cockpit && cockpit != null)
-            {
-                var glass = GlassDetector.Get(cockpit.BlockDefinition);
-                var world = cockpit.WorldMatrix;
-                snapshot.MaskInterior = true;
-                snapshot.BoxCenter = Vector3D.Transform(glass.InteriorBox.Center, world);
-                snapshot.BoxAxisX = world.Right;
-                snapshot.BoxAxisY = world.Up;
-                snapshot.BoxAxisZ = world.Backward;
-                snapshot.BoxHalfExtents = glass.InteriorBox.HalfExtents;
-            }
-        }
-        else if (lastSnapshot != null)
-        {
-            snapshot.MaskInterior = lastSnapshot.MaskInterior;
-            snapshot.BoxCenter = lastSnapshot.BoxCenter;
-            snapshot.BoxAxisX = lastSnapshot.BoxAxisX;
-            snapshot.BoxAxisY = lastSnapshot.BoxAxisY;
-            snapshot.BoxAxisZ = lastSnapshot.BoxAxisZ;
-            snapshot.BoxHalfExtents = lastSnapshot.BoxHalfExtents;
-        }
+            Blend = blend,
+            Flash = flash * flash,
+            Passive = mode == NightVisionMode.Passive,
+        };
 
-        lastSnapshot = snapshot;
         NightVisionRenderer.Publish(snapshot);
     }
 
-    /// <summary>
-    /// Decides which source provides night vision for the current view. Returns the cockpit the
-    /// local player looks out of when the source is its glass.
-    /// </summary>
-    public static MyCockpit EvaluateSource(out NightVisionSource source, out bool available)
+    public static NightVisionMode EvaluateMode()
     {
-        source = NightVisionSource.None;
-        available = false;
-
         var session = MySession.Static;
         var controlled = session?.ControlledEntity;
         if (controlled == null || !ReferenceEquals(session.CameraController, controlled))
-            return null;
+            return NightVisionMode.None;
 
-        // First person only; this also rules out every spectator mode
         if (session.GetCameraControllerEnum() != MyCameraControllerEnum.Entity)
-            return null;
+            return NightVisionMode.None;
 
+        MyCharacter character;
         switch (controlled)
         {
-            case MyCharacter character:
-                source = NightVisionSource.Helmet;
-                available = IsHelmetClosed(character);
-                return null;
-
-            // Includes cryo chambers, beds and passenger seats
+            case MyCharacter controlledCharacter:
+                character = controlledCharacter;
+                break;
             case MyCockpit cockpit:
-                if (GlassDetector.Get(cockpit.BlockDefinition).HasGlass)
-                {
-                    source = NightVisionSource.Cockpit;
-                    available = true;
-                    return cockpit;
-                }
-
-                source = NightVisionSource.Helmet;
-                available = IsHelmetClosed(cockpit.Pilot ?? session.LocalCharacter);
-                return null;
-
-            // Remote controlled ships, turrets and anything else
+                character = cockpit.Pilot ?? session.LocalCharacter;
+                break;
             default:
-                return null;
+                return NightVisionMode.None;
         }
+
+        return IsHelmetClosed(character) ? NightVisionMode.Active : NightVisionMode.Passive;
     }
 
     private static bool IsHelmetClosed(MyCharacter character)

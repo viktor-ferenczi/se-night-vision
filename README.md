@@ -1,7 +1,7 @@
 # Night Vision
 
 Space Engineers (version 1) client plugin that adds a toggleable night vision mode in the style of
-Elite Dangerous. It is built into the suit helmet and into cockpit glass.
+Elite Dangerous. It is built into the suit helmet and works passively through glass.
 
 ## Look
 
@@ -24,35 +24,26 @@ crease lines, grain, vignette, washout and fade time are set in the plugin's Set
 
 | Situation | Source | Night vision |
 |---|---|---|
-| First person on foot, helmet closed | Helmet | Full screen, except the HUD |
-| First person on foot, helmet open | none | Standby, nothing is processed |
-| Seated in first person, the block has glass | Cockpit | Only what is seen through the glass, any helmet state |
-| Seated in first person, the block has no glass | Helmet | Same as on foot |
+| First person, helmet closed | Full | Full screen, except the HUD |
+| First person, helmet open | Passive | Only through a clear-to-dark pair of `GLASS` surfaces |
 | Third person, remote control, turrets, cameras, spectator | none | Normal rendering |
 
-Activating night vision only arms it; the table decides whether it renders. The toggle is shared
-between the suit and the cockpit, so it follows the player in and out of seats. The HUD and GUI are never processed.
+Activating night vision only arms it; the table decides how it renders. The HUD and GUI are never
+processed.
 
 ### HUD indicator
 
 While night vision is active, its icon replaces the main light glyph in the current HUD definition.
-The light's bottom bar remains independent and still shows whether the light itself is on or off.
+It is bright in full mode and uses the flashlight's disabled tone in passive mode. The light's
+bottom bar remains independent and still shows whether the light itself is on or off.
 The current HUD supplies the position, size, visibility and fading; no additional state icon or
 HUD-mod-specific layout handling is added. Nothing is synced and there is no gameplay effect.
 
-### Cockpit glass
+### Glass
 
-Whether a seat has glass is decided once per block definition by looking for meshes with the
-`GLASS` draw technique in its model, interior model, glass model and subparts. That scan gets a
-few vanilla and DLC blocks wrong, which `GlassDetector` corrects with a built-in list: the rover
-cockpit has windows but no `GLASS` meshes, while the open cockpits, the suspended control seats
-and some furniture have glass that the occupant does not look through.
-Modded blocks can be fixed with the two subtype lists in the Settings. Starting the game with
-`NIGHTVISION_GLASS_REPORT=1` logs the detection result for every seat definition.
-
-Seen through the glass means outside the block's box: pixels whose world position lies inside the
-seat block (with its interior model) keep their normal look. The pilot's own grid outside that
-box is processed too, since the depth buffer cannot tell it apart from the world.
+Passive mode uses clear-to-dark transmission through the game's `GLASS` render technique. It therefore
+follows actual one-way glass pixels in vanilla, DLC and modded models without cockpit definitions or
+subtype lists. A clear-only material does not count, and a nearer dark face blocks clear faces behind it.
 
 ## Activation
 

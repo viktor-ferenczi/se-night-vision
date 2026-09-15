@@ -14,11 +14,7 @@ cbuffer NightVisionConstants : register(b8)
 {
     float4 TintGain;    // rgb = tint, w = luminance gain
     float4 Look;        // x = outline strength, y = noise, z = vignette, w = highlight washout
-    float4 Anim;        // x = blend (fade), y = flash, z = time in seconds, w = 1 when masking the cockpit interior
-    float4 BoxCenter;   // xyz = camera-relative center of the cockpit interior box
-    float4 BoxAxisX;    // xyz = unit axis, w = half extent along it
-    float4 BoxAxisY;
-    float4 BoxAxisZ;
+    float4 Anim;        // x = blend (fade), y = flash, z = time in seconds, w = passive mode
     float4 Extra;       // x = natural light threshold, y = sky gain, z = crease lines, w = IR fallback
     float4 FogVision;   // rgb = fog-vision tint, w = remaining visibility where it begins
 };
@@ -30,6 +26,7 @@ Texture2D<float2> ExposureTex : register(t23); // 1x1, g = log2 exposure (see Po
 Texture2D<float4> Gbuffer0Tex : register(t24); // rgb = linear base color, a = model LOD/tree marker
 Texture2D<float4> Gbuffer2Tex : register(t25); // a = multisample coverage; foliage writes zero
 Texture2D<float4> SensorTex   : register(t26); // opaque lighting rendered without fog or weather
+Texture2D<float2> GlassMask   : register(t27); // nearest clear-side depth, nearest dark-side depth
 
 static const float3 LuminanceWeights = float3(0.2126, 0.7152, 0.0722);
 static const float SkyDepth = 1e6;
@@ -41,14 +38,6 @@ float Hash(float2 p)
     float3 p3 = frac(float3(p.xyx) * 0.1031);
     p3 += dot(p3, p3.yzx + 33.33);
     return frac((p3.x + p3.y) * p3.z);
-}
-
-bool InsideInteriorBox(float3 position)
-{
-    float3 d = position - BoxCenter.xyz;
-    return abs(dot(d, BoxAxisX.xyz)) <= BoxAxisX.w
-        && abs(dot(d, BoxAxisY.xyz)) <= BoxAxisY.w
-        && abs(dot(d, BoxAxisZ.xyz)) <= BoxAxisZ.w;
 }
 
 float LinearDepth(int2 texel)
@@ -143,16 +132,16 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
     float4 scene = SceneTex.Load(int3(texel, 0));
     float centerDepth = LinearDepth(texel);
 
+    float glassCoverage = 1;
     if (Anim.w > 0.5)
     {
-        // Cockpit source: the interior, the pilot and anything else inside the block's
-        // box are not seen through the glass, so they keep their normal look.
-        float hw = DepthTex.Load(int3(texel, 0));
-        if (hw > 0 && InsideInteriorBox(ReconstructWorldPosition(hw, uv)))
-        {
-            output = scene;
-            return;
-        }
+        float2 glassDepth = GlassMask.Load(int3(texel, 0));
+        glassCoverage = glassDepth.y > 0 && glassDepth.x >= glassDepth.y ? 1 : 0;
+    }
+    if (glassCoverage <= 0)
+    {
+        output = scene;
+        return;
     }
 
     float exposure = exp2(ExposureTex.Load(int3(0, 0, 0)).g);
@@ -246,7 +235,7 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
         ? saturate((FogVision.w - visibility) / FogVision.w)
         : 0;
     float greenWeight = darkness * (1 - badWeather);
-    float3 result = exposed + saturate(Anim.x)
+    float3 result = exposed + saturate(Anim.x) * glassCoverage
         * (nightVision * (1 - saturate(exposed)) * greenWeight + weatherVision * badWeather);
 
     output = float4(result / max(exposure, 1e-6), scene.a);

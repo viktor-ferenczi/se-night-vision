@@ -27,9 +27,6 @@ public class Config : INotifyPropertyChanged
     private float washout = 1f;
     private float fadeSeconds = 0.3f;
 
-    private string forceGlass = "";
-    private string forceNoGlass = "";
-
     #endregion
 
     #region User interface
@@ -201,25 +198,6 @@ public class Config : INotifyPropertyChanged
     {
         get => fogVisibility;
         set => SetField(ref fogVisibility, value);
-    }
-
-    [Separator("Cockpit glass overrides")]
-    [Textbox(
-        description: "Comma separated block subtype IDs always treated as having see-through glass (for modded cockpits)"
-    )]
-    public string ForceGlass
-    {
-        get => forceGlass;
-        set => SetField(ref forceGlass, value);
-    }
-
-    [Textbox(
-        description: "Comma separated block subtype IDs always treated as having no glass, so the helmet provides night vision"
-    )]
-    public string ForceNoGlass
-    {
-        get => forceNoGlass;
-        set => SetField(ref forceNoGlass, value);
     }
 
     #endregion

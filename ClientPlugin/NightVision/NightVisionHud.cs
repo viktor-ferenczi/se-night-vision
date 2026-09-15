@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Sandbox.Definitions.GUI;
 using Sandbox.Game.Gui;
@@ -12,7 +13,6 @@ using VRageMath;
 
 namespace ClientPlugin.NightVision;
 
-/// <summary>1 while night vision is activated and renders, 0 otherwise.</summary>
 public class NightVisionHudStat : MyStatBase
 {
     public static readonly MyStringHash StatName = MyStringHash.GetOrCompute("night_vision");
@@ -24,7 +24,32 @@ public class NightVisionHudStat : MyStatBase
 
     public override void Update()
     {
-        CurrentValue = NightVisionController.Activated && NightVisionController.Available ? 1f : 0f;
+        CurrentValue =
+            NightVisionController.Activated
+            && NightVisionController.Mode == NightVisionMode.Active
+            ? 1f
+            : 0f;
+    }
+}
+
+public class NightVisionPassiveHudStat : NightVisionHudStat
+{
+    public new static readonly MyStringHash StatName = MyStringHash.GetOrCompute(
+        "night_vision_passive"
+    );
+
+    public NightVisionPassiveHudStat()
+    {
+        Id = StatName;
+    }
+
+    public override void Update()
+    {
+        CurrentValue =
+            NightVisionController.Activated
+            && NightVisionController.Mode == NightVisionMode.Passive
+            ? 1f
+            : 0f;
     }
 }
 
@@ -92,12 +117,18 @@ public static class NightVisionHud
                 if (!nightVisionSlots.Add(light.OffsetPx))
                     continue;
 
-                var nightVision = ShallowCopy(light);
-                nightVision.StatId = NightVisionHudStat.StatName;
-                nightVision.Texture = IconTexture;
-                nightVision.ColorMask = null;
-                nightVision.VisibleCondition = Active();
-                styles.Add(nightVision);
+                var full = ShallowCopy(light);
+                full.StatId = NightVisionHudStat.StatName;
+                full.Texture = IconTexture;
+                full.ColorMask = null;
+                full.VisibleCondition = Full();
+                styles.Add(full);
+
+                var passive = ShallowCopy(full);
+                passive.StatId = NightVisionPassiveHudStat.StatName;
+                passive.ColorMask = FindDimColor(source.StatStyles, light.OffsetPx);
+                passive.VisibleCondition = Passive();
+                styles.Add(passive);
 
                 groupChanged = replaced = true;
             }
@@ -136,23 +167,46 @@ public static class NightVisionHud
                 Terms = new[] { original, state },
             };
 
-    private static ConditionBase Active() => Stat(StatConditionOperator.Above);
+    private static ConditionBase Full() =>
+        Stat(NightVisionHudStat.StatName, StatConditionOperator.Above);
 
-    private static ConditionBase Inactive() => Stat(StatConditionOperator.Below);
+    private static ConditionBase Passive() =>
+        Stat(NightVisionPassiveHudStat.StatName, StatConditionOperator.Above);
 
-    private static ConditionBase Stat(StatConditionOperator op) =>
+    private static ConditionBase Inactive() =>
+        new Condition
+        {
+            Operator = StatLogicOperator.And,
+            Terms =
+            [
+                Stat(NightVisionPassiveHudStat.StatName, StatConditionOperator.Below),
+                Stat(NightVisionHudStat.StatName, StatConditionOperator.Below),
+            ],
+        };
+
+    private static ConditionBase Stat(MyStringHash id, StatConditionOperator op) =>
         new StatCondition
         {
-            StatId = NightVisionHudStat.StatName,
+            StatId = id,
             Operator = op,
             Value = 0.5f,
         };
 
     private static void EnsureStat()
     {
-        if (MyHud.Stats.GetStat<NightVisionHudStat>() == null)
+        if (MyHud.Stats.GetStat(NightVisionHudStat.StatName) == null)
             MyHud.Stats.Register(new NightVisionHudStat());
+        if (MyHud.Stats.GetStat(NightVisionPassiveHudStat.StatName) == null)
+            MyHud.Stats.Register(new NightVisionPassiveHudStat());
     }
+
+    private static Vector4 FindDimColor(MyObjectBuilder_StatVisualStyle[] styles, Vector2 offset) =>
+        styles
+            .OfType<MyObjectBuilder_ImageStatVisualStyle>()
+            .FirstOrDefault(image =>
+                image.StatId == LightStat && image.OffsetPx == offset && image.ColorMask.HasValue
+            )
+            ?.ColorMask ?? new Vector4(1f, 1f, 1f, 0.2f);
 
     private static void EnsureTexture()
     {

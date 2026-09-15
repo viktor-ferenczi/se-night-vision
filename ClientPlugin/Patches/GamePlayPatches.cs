@@ -49,8 +49,6 @@ public static class IsControlPatch
 public static class GamePlayDrawPatch
 {
     private static bool failed;
-    private static bool reportLogged;
-
     public static void Postfix()
     {
         if (failed)
@@ -58,13 +56,6 @@ public static class GamePlayDrawPatch
 
         try
         {
-            if (!reportLogged)
-            {
-                reportLogged = true;
-                if (Environment.GetEnvironmentVariable("NIGHTVISION_GLASS_REPORT") == "1")
-                    GlassDetector.LogReport();
-            }
-
             NightVisionController.Update();
         }
         catch (Exception e)

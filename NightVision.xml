@@ -14,15 +14,15 @@
     <Author>Viktor</Author>
 
     <!-- Optional tooltip for the plugin in the plugin list -->
-    <Tooltip>Toggleable night vision built into the suit helmet and the cockpit glass.</Tooltip>
+    <Tooltip>Toggleable helmet night vision with passive vision through glass.</Tooltip>
 
     <!-- Optional plugin description. If omitted, this will be the same as the Tooltip. 1000 characters max. -->
     <Description>
         Adds a night vision mode in the style of Elite Dangerous: amplified green
         luminance with thin outlines on silhouettes, grain and a vignette.
 
-        The suit helmet provides it while the helmet is closed, on foot or in seats without glass.
-        Cockpits with glass apply it only to what is seen through the glass.
+        A closed helmet provides full night vision. With the helmet open, passive night vision is
+        applied only through glass materials.
 
         Hold the light key (L) to toggle it; a tap still toggles the light. While active, the night
         vision icon replaces the current HUD's light icon.
