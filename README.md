@@ -24,12 +24,14 @@ crease lines, grain, vignette, washout and fade time are set in the plugin's Set
 
 | Situation | Source | Night vision |
 |---|---|---|
-| First person, helmet closed | Full | Full screen, except the HUD |
+| First person, helmet closed, on foot | Helmet | Configured mode; `Auto` uses active |
+| First person, helmet closed, controlling a vehicle | Helmet | Configured mode; `Auto` uses passive |
 | First person, helmet open | Passive | Only through a clear-to-dark pair of `GLASS` surfaces |
 | Third person, remote control, turrets, cameras, spectator | none | Normal rendering |
 
 Activating night vision only arms it; the table decides how it renders. The HUD and GUI are never
-processed.
+processed. The helmet mode setting applies to both night vision and fog vision when the helmet is
+closed; choosing Passive or Active forces that mode wherever helmet vision is available.
 
 ### HUD indicator
 

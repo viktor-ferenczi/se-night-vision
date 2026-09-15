@@ -133,7 +133,20 @@ public static class NightVisionController
                 return NightVisionMode.None;
         }
 
-        return IsHelmetClosed(character) ? NightVisionMode.Active : NightVisionMode.Passive;
+        if (!IsHelmetClosed(character))
+            return NightVisionMode.Passive;
+
+        switch (Config.Current.HelmetMode)
+        {
+            case HelmetVisionMode.Passive:
+                return NightVisionMode.Passive;
+            case HelmetVisionMode.Active:
+                return NightVisionMode.Active;
+            default:
+                return controlled is MyCharacter
+                    ? NightVisionMode.Active
+                    : NightVisionMode.Passive;
+        }
     }
 
     private static bool IsHelmetClosed(MyCharacter character)

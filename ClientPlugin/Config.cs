@@ -7,11 +7,19 @@ using VRageMath;
 
 namespace ClientPlugin;
 
+public enum HelmetVisionMode
+{
+    Passive,
+    Active,
+    Auto,
+}
+
 public class Config : INotifyPropertyChanged
 {
     #region Options
 
     private float longPressSeconds = 0.5f;
+    private HelmetVisionMode helmetMode = HelmetVisionMode.Active;
 
     private Color tint = new Color(0.35f, 1f, 0.7f);
     private float gain = 6f;
@@ -45,6 +53,13 @@ public class Config : INotifyPropertyChanged
     {
         get => longPressSeconds;
         set => SetField(ref longPressSeconds, value);
+    }
+
+    [Dropdown(description: "Mode used while the suit helmet is closed; Auto uses passive vision in a vehicle")]
+    public HelmetVisionMode HelmetMode
+    {
+        get => helmetMode;
+        set => SetField(ref helmetMode, value);
     }
 
     [Separator("Look")]
