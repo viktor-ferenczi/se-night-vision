@@ -33,6 +33,7 @@ static const float3 LuminanceWeights = float3(0.2126, 0.7152, 0.0722);
 static const float SkyDepth = 1e6;
 static const float InfraredRange = 50;
 static const float AtmosphereDistanceMin = 1000;
+static const float LodDepthTolerance = 0.05;
 
 float Hash(float2 p)
 {
@@ -61,15 +62,38 @@ float3 Normal(int2 texel)
     return unpack_normals2(Gbuffer1Tex.Load(int3(texel, 0)).xy);
 }
 
-bool IsFoliage(int2 texel, float depth)
+uint ModelLod(int2 texel)
+{
+    return (uint)(Gbuffer0Tex.Load(int3(texel, 0)).a * 255 + 0.5);
+}
+
+bool IsFoliage(int2 texel, float depth, uint lod)
 {
     return depth < SkyDepth
         && (Gbuffer2Tex.Load(int3(texel, 0)).a == 0
-            || abs(Gbuffer0Tex.Load(int3(texel, 0)).a * 255 - 254) < 0.5);
+            || lod == 254);
 }
 
-float MaskedDepthEdge(float centerDepth, float2 depths, bool2 foliage, bool centerFoliage)
+bool IsLodBlend(float centerDepth, float neighborDepth, uint centerLod, uint neighborLod)
 {
+    // Vanilla interleaves both meshes during an LOD fade. Ignore nearby cross-LOD samples,
+    // but retain large depth changes as real silhouettes between separate surfaces.
+    return centerLod != neighborLod
+        && neighborDepth < SkyDepth
+        && abs(neighborDepth - centerDepth)
+            < max(centerDepth, neighborDepth) * LodDepthTolerance + 0.05;
+}
+
+float MaskedDepthEdge(
+    float centerDepth,
+    float2 depths,
+    bool2 foliage,
+    bool centerFoliage,
+    bool2 lodBlend)
+{
+    if (any(lodBlend))
+        return 0;
+
     if (centerFoliage || !any(foliage))
         return abs(depths.x + depths.y - 2 * centerDepth);
 
@@ -83,31 +107,42 @@ float EdgeStrength(int2 texel, float centerDepth)
     if (centerDepth >= SkyDepth)
         return 0;
 
-    bool centerFoliage = IsFoliage(texel, centerDepth);
-
     float l = LinearDepth(texel + int2(-1, 0));
     float r = LinearDepth(texel + int2(1, 0));
     float u = LinearDepth(texel + int2(0, -1));
     float d = LinearDepth(texel + int2(0, 1));
-    bool lc = IsFoliage(texel + int2(-1, 0), l);
-    bool rc = IsFoliage(texel + int2(1, 0), r);
-    bool uc = IsFoliage(texel + int2(0, -1), u);
-    bool dc = IsFoliage(texel + int2(0, 1), d);
+    uint centerLod = ModelLod(texel);
+    uint ll = ModelLod(texel + int2(-1, 0));
+    uint rl = ModelLod(texel + int2(1, 0));
+    uint ul = ModelLod(texel + int2(0, -1));
+    uint dl = ModelLod(texel + int2(0, 1));
+    bool centerFoliage = IsFoliage(texel, centerDepth, centerLod);
+    bool lc = IsFoliage(texel + int2(-1, 0), l, ll);
+    bool rc = IsFoliage(texel + int2(1, 0), r, rl);
+    bool uc = IsFoliage(texel + int2(0, -1), u, ul);
+    bool dc = IsFoliage(texel + int2(0, 1), d, dl);
+    bool4 lodBlend = bool4(
+        IsLodBlend(centerDepth, l, centerLod, ll),
+        IsLodBlend(centerDepth, r, centerLod, rl),
+        IsLodBlend(centerDepth, u, centerLod, ul),
+        IsLodBlend(centerDepth, d, centerLod, dl));
 
     // Second derivative of depth, relative to the distance: flat and sloped surfaces
     // both give ~0, only depth discontinuities (silhouettes) stand out. The geometry
     // side of a silhouette against the sky gets the full line, so horizons are traced.
-    float laplacian = MaskedDepthEdge(centerDepth, float2(l, r), bool2(lc, rc), centerFoliage)
-                    + MaskedDepthEdge(centerDepth, float2(u, d), bool2(uc, dc), centerFoliage);
+    float laplacian = MaskedDepthEdge(
+        centerDepth, float2(l, r), bool2(lc, rc), centerFoliage, lodBlend.xy)
+        + MaskedDepthEdge(
+            centerDepth, float2(u, d), bool2(uc, dc), centerFoliage, lodBlend.zw);
     float depthEdge = saturate(laplacian / (centerDepth * 0.02 + 0.05) - 0.1);
 
     // Creases and panel lines: normals that change direction between neighbors,
     // checked on both sides so the line is centered and reads as a contour.
     float3 n = Normal(texel);
-    float bend = (1 - dot(n, rc == centerFoliage ? Normal(texel + int2(1, 0)) : n))
-               + (1 - dot(n, lc == centerFoliage ? Normal(texel + int2(-1, 0)) : n))
-               + (1 - dot(n, dc == centerFoliage ? Normal(texel + int2(0, 1)) : n))
-               + (1 - dot(n, uc == centerFoliage ? Normal(texel + int2(0, -1)) : n));
+    float bend = (1 - dot(n, rc == centerFoliage && rl == centerLod ? Normal(texel + int2(1, 0)) : n))
+               + (1 - dot(n, lc == centerFoliage && ll == centerLod ? Normal(texel + int2(-1, 0)) : n))
+               + (1 - dot(n, dc == centerFoliage && dl == centerLod ? Normal(texel + int2(0, 1)) : n))
+               + (1 - dot(n, uc == centerFoliage && ul == centerLod ? Normal(texel + int2(0, -1)) : n));
     float normalEdge = saturate(bend * 2 - 0.15);
     // Fade with distance, where the normals of rough terrain turn into noise.
     normalEdge *= saturate(1.5 - centerDepth / 1500);
@@ -194,8 +229,14 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
     // lines to about 1.3 pixels. Foliage scale applies again here to reduce that widening too.
     float rightDepth = LinearDepth(texel + int2(1, 0));
     float downDepth = LinearDepth(texel + int2(0, 1));
-    float rightWidth = IsFoliage(texel + int2(1, 0), rightDepth) ? Transition.z : 1;
-    float downWidth = IsFoliage(texel + int2(0, 1), downDepth) ? Transition.z : 1;
+    float rightWidth = IsFoliage(
+        texel + int2(1, 0),
+        rightDepth,
+        ModelLod(texel + int2(1, 0))) ? Transition.z : 1;
+    float downWidth = IsFoliage(
+        texel + int2(0, 1),
+        downDepth,
+        ModelLod(texel + int2(0, 1))) ? Transition.z : 1;
     float edgeRaw = max(EdgeStrength(texel, centerDepth),
                         0.33 * max(rightWidth * EdgeStrength(texel + int2(1, 0), rightDepth),
                                    downWidth * EdgeStrength(texel + int2(0, 1), downDepth)));
