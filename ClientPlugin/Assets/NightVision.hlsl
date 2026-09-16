@@ -34,6 +34,7 @@ static const float SkyDepth = 1e6;
 static const float InfraredRange = 50;
 static const float AtmosphereDistanceMin = 1000;
 static const float LodDepthTolerance = 0.05;
+static const float GlassLayerTolerance = 0.05;
 
 float Hash(float2 p)
 {
@@ -168,7 +169,11 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
     if (Anim.w < 1)
     {
         float2 glassDepth = GlassMask.Load(int3(texel, 0));
-        glassCoverage = glassDepth.y > 0 && glassDepth.x >= glassDepth.y ? 1 : 0;
+        // Sloped inside/outside meshes can cross slightly along a non-planar join. Compare in
+        // linear space so their small separation does not make the mask alternate at close range.
+        glassCoverage = all(glassDepth > 0)
+            && compute_depth(glassDepth.x) <= compute_depth(glassDepth.y) + GlassLayerTolerance
+            ? 1 : 0;
     }
     float activeOnlyCoverage = activeCoverage * (1 - glassCoverage);
     if (glassCoverage <= 0 && activeOnlyCoverage <= 0)
