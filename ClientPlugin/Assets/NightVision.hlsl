@@ -13,10 +13,10 @@
 cbuffer NightVisionConstants : register(b8)
 {
     float4 TintGain;    // rgb = tint, w = luminance gain
-    float4 Look;        // x = outline strength, y = noise, z = vignette, w = highlight washout
+    float4 Look;        // x = outline strength, y = noise, z = vignette
     float4 Anim;        // x = on/off blend, y = flash, z = time, w = active-mode progress
     float4 Transition;  // x = flash active-only pixels, y = sliding visor, z = foliage highlights
-    float4 Extra;       // x = natural light threshold, y = sky gain, z = crease lines, w = IR fallback
+    float4 Extra;       // x = natural light threshold, y = crease lines, z = IR fallback
     float4 FogVision;   // rgb = fog-vision tint, w = remaining visibility where it begins
 };
 
@@ -114,7 +114,7 @@ float EdgeStrength(int2 texel, float centerDepth)
 
     // Crease lines are weighted separately: at 0 only silhouettes and real steps between surfaces
     // are outlined, not the bevels every armor block has along its borders.
-    return max(depthEdge, normalEdge * Extra.z) * (centerFoliage ? Transition.z : 1);
+    return max(depthEdge, normalEdge * Extra.y) * (centerFoliage ? Transition.z : 1);
 }
 
 void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
@@ -174,21 +174,13 @@ void __pixel_shader(PostprocessVertex input, out float4 output : SV_Target0)
         rangeFade *= rangeFade;
         float facing = saturate(dot(Normal(texel), -normalize(viewRay)));
         float irReflectance = lerp(0.1, 1, saturate(baseLuminance));
-        sensorLuminance += Extra.w * rangeFade * irReflectance * lerp(0.25, 1, facing);
+        sensorLuminance += Extra.z * rangeFade * irReflectance * lerp(0.25, 1, facing);
     }
 
     // Amplified luminance, colour dropped. The soft knee lifts the shadows and levels off
     // below 1, so moderately lit surfaces do not turn into a glaring band before the natural
-    // color takes over. The sky gets much less gain: space stays black with the stars showing.
-    float amplified = sensorLuminance * TintGain.w;
-    if (sky)
-        amplified *= Extra.y;
-    else
-        amplified = 1 - exp(-1.3 * pow(amplified, 0.75));
-
-    // Sensor overload: only real light sources (already brighter than white before any gain)
-    // are pushed further, so they bloom and wash out.
-    amplified += Look.w * max(luminance - 1, 0);
+    // color takes over. The sky is not amplified, so space stays black with the stars showing.
+    float amplified = sky ? 0 : 1 - exp(-1.3 * pow(sensorLuminance * TintGain.w, 0.75));
 
     // Grain, stronger in the dark like a real intensifier tube, animated per frame.
     float grain = Hash(float2(texel) + frac(Anim.z * 7.13) * 1024) - 0.5;

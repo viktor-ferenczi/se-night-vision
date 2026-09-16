@@ -232,7 +232,7 @@ public static class NightVisionRenderer
                 config.OutlineStrength,
                 config.Noise,
                 config.Vignette,
-                config.Washout
+                0f
             ),
             Anim = new Vector4(
                 snap.Blend,
@@ -248,9 +248,9 @@ public static class NightVisionRenderer
             ),
             Extra = new Vector4(
                 config.NaturalLightThreshold,
-                config.SkyGain,
                 config.CreaseLines,
-                config.Fallback
+                config.Fallback,
+                0f
             ),
             FogVision = new Vector4(config.FogTint.ToVector3(), config.FogVisibility),
         };
