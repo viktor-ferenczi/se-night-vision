@@ -1,83 +1,20 @@
 # Night Vision
+Night Vision is a client plugin for Space Engineers, inspired by Elite Dangerous.
+It brightens dark scenes, outlines nearby geometry, and adds a short-range infrared fallback when there is no visible light.
+The effect is local and does not change gameplay.
 
-Space Engineers (version 1) client plugin that adds a toggleable night vision mode in the style of
-Elite Dangerous. It is built into the suit helmet and works passively through glass.
+## Using it
+Hold the light key (`L` by default) to toggle night vision.
+A short press still toggles your light, and rebinding the light control also changes the night vision key.
 
-## Look
+With the default settings, a closed helmet uses active night vision on foot and passive night vision in vehicles.
+An open helmet only shows the effect through one-way glass.
+Ship cameras use active mode, while third person and spectator views use passive mode.
 
-- Amplified luminance with the color dropped, so dark areas become readable.
-- A wide, short-range infrared flood reveals geometry when no visible light remains.
-- A monochrome teal-cyan tint by default.
-- Thin bright contour lines on silhouettes, horizons and real steps between surfaces, from an
-  edge detect on depth. Crease and panel lines from the normals, such as the edges of every
-  armor block, are mixed in at half strength by default. Grass, bushes and trees receive smaller,
-  fainter highlights to keep their many edges under control.
-- The sky is not amplified, so space stays black with the stars showing.
-- Surfaces lit well enough by sunlight, ambient light or local lights keep their natural color.
-- Grain and a vignette.
-- A short flash when it switches on and a fade when it switches off. Raising or lowering the suit
-  helmet slides its active vision up or down. Other mode changes flash or fade only the active
-  portion, preserving passive vision through glass.
-
-Gain, tint, the natural light threshold, fallback flood strength, outline and foliage highlights,
-crease lines, fog vision, grain, vignette and animation time are set in Settings.
-
-## When it applies
-
-| Situation | Source | Night vision |
-|---|---|---|
-| First person, helmet closed, on foot | Helmet | Configured mode; `Auto` uses active |
-| First person, helmet closed, controlling a vehicle | Helmet | Configured mode; `Auto` uses passive |
-| First person, helmet open | Passive | Only through a clear-to-dark pair of `GLASS` surfaces |
-| Ship cameras, remote views and turrets | Camera | Configured camera mode; active by default |
-| Third person and spectator/free camera | Free camera | Configured spectator mode; passive by default |
-
-Activating night vision only arms it; the table decides how it renders. The HUD and GUI are never
-processed. The helmet mode setting applies to both night vision and fog vision when the helmet is
-closed; choosing Passive or Active forces that mode wherever helmet vision is available. Camera
-and spectator views use their respective configured modes.
-
-### HUD indicator
-
-While night vision is active, its icon replaces the main light glyph in the current HUD definition.
-It is bright in full mode and uses the flashlight's disabled tone in passive mode. The light's
-bottom bar remains independent and still shows whether the light itself is on or off.
-The current HUD supplies the position, size, visibility and fading; no additional state icon or
-HUD-mod-specific layout handling is added. Nothing is synced and there is no gameplay effect.
-
-### Glass
-
-Passive mode uses clear-to-dark transmission through the game's `GLASS` render technique. It therefore
-follows actual one-way glass pixels in vanilla, DLC and modded models without cockpit definitions or
-subtype lists. A clear-only material does not count, and a nearer dark face blocks clear faces behind it.
-
-## Activation
-
-Holding the light key past the configurable threshold toggles night vision and leaves the light
-alone; a tap toggles the light as in vanilla. The key is whatever the light control is bound to (L
-by default), so rebinding the light key moves it too. The gamepad is left as vanilla. Spectator
-light input uses the same tap/hold behavior.
-
-## How it works
-
-- `NightVisionController` runs on the game thread once per drawn frame, from a postfix on
-  `MyGuiScreenGamePlay.Draw`. It decides the source, advances animations and publishes a snapshot.
-- `NightVisionRenderer` runs a pixel shader over the HDR light buffer from postfixes on
-  `MyEyeAdaptation.Run` and `MyEyeAdaptation.ConstantExposure`, so bloom and tone mapping see the
-  amplified image. It works in exposed space, so the look does not depend on what eye adaptation
-  settles on.
-- `InputHandler` rewrites the answer of `MyControllerHelper.IsControl(context, HEADLIGHTS)` while
-  `MyGuiScreenGamePlay.HandleUnhandledInput` runs, which keeps vanilla's click sound and replay
-  record consistent with what actually happened.
-- The shader in `ClientPlugin/Shaders` is compiled by the game's shader registry after its includes
-  are inlined, because the include callback does not work in the Linux build of the compiler.
+You can change these modes and adjust the image in the plugin settings.
 
 ## Building
-
-See the [client plugin template](https://github.com/CometWorks/client-plugin-template) for the
-build setup (`Directory.Build.props`, `setup.py`, deployment into Pulsar). Pulsar builds the plugin
-from source and copies the shader folder as an asset.
+Use a Pulsar DevFolder with `NightVision.xml`, or build `NightVision.sln` to deploy the plugin to Pulsar's local plugin folder.
 
 ## Support
-
-Please report bugs on the Pulsar Discord: https://discord.gg/z8ZczP2YZY
+Report bugs on the [Pulsar Discord](https://discord.gg/z8ZczP2YZY).
