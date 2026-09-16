@@ -13,11 +13,6 @@ namespace ClientPlugin.Patches;
 [HarmonyPatch(typeof(MyEyeAdaptation), nameof(MyEyeAdaptation.Run))]
 public static class EyeAdaptationRunPatch
 {
-    public static void Prefix(ref ISrvTexture __1)
-    {
-        NightVisionRenderer.UseSensorForExposure(ref __1);
-    }
-
     public static void Postfix()
     {
         NightVisionRenderer.Apply();

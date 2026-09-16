@@ -160,12 +160,6 @@ public static class NightVisionRenderer
         }
     }
 
-    public static void UseSensorForExposure(ref ISrvTexture scene)
-    {
-        if (sensorScene != null && snapshot?.ActiveBlend > 0f)
-            scene = sensorScene;
-    }
-
     private static void ApplyInternal(
         MyRenderContext rc,
         NightVisionSnapshot snap,
