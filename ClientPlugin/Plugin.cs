@@ -1,5 +1,4 @@
 using System;
-using System.ComponentModel;
 using System.IO;
 using System.Reflection;
 using ClientPlugin.NightVision;
@@ -43,8 +42,8 @@ public class Plugin : IPlugin
             ExtractEmbeddedShader();
         if (NightVisionHud.IconPath == null)
             ExtractEmbeddedIcon();
-
-        Config.Current.PropertyChanged += OnConfigPropertyChanged;
+        GlassMaskRenderer.Initialize();
+        NightVisionRenderer.Initialize();
 
         var harmony = new Harmony(Name);
         harmony.PatchAll(Assembly.GetExecutingAssembly());
@@ -127,20 +126,6 @@ public class Plugin : IPlugin
         catch (Exception e)
         {
             MyLog.Default.Error($"{Name}: Failed to extract the embedded shader: {e}");
-        }
-    }
-
-    private static void OnConfigPropertyChanged(object sender, PropertyChangedEventArgs e)
-    {
-        switch (e.PropertyName)
-        {
-            case nameof(Config.HudIndicator):
-                NightVisionHud.Refresh();
-                break;
-            case nameof(Config.ForceGlass):
-            case nameof(Config.ForceNoGlass):
-                GlassDetector.ClearCache();
-                break;
         }
     }
 

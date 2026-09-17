@@ -78,6 +78,7 @@ internal class SliderAttribute : Attribute, IElement
             return true;
         }
 
+        float normalizedStep = Step / (Max - Min);
         var slider = new MyGuiControlSlider(
             toolTip: Description,
             defaultValue: Convert.ToSingle(propertyGetter()),
@@ -85,12 +86,14 @@ internal class SliderAttribute : Attribute, IElement
             maxValue: Max,
             intValue: Type == SliderType.Integer)
         {
-            MinimumStepOverride = Step,
+            MinimumStepOverride = normalizedStep,
+            StepLength = normalizedStep,
+            SnapSliderToSteps = true,
         };
 
         if (Type == SliderType.Float)
         {
-            slider.LabelDecimalPlaces = (int)Math.Max(1, Math.Ceiling(-Math.Log10(2f * Step)));
+            slider.LabelDecimalPlaces = (int)Math.Max(1, Math.Ceiling(-Math.Log10(Step)));
         }
 
         slider.ValueChanged += ValueUpdate;
