@@ -68,13 +68,6 @@ public static class OldGlassDrawPatch
         ImplicitPair = 2,
     }
 
-    // These legacy materials need behavior their models do not provide to the mask pass.
-    private static readonly Dictionary<string, GlassFix> Exceptions = new(StringComparer.Ordinal)
-    {
-        // Its interior model omits the dark pane and winds the clear pane away from the pilot.
-        ["CockpitIndustrialGlassInside"] = GlassFix.CaptureBackface | GlassFix.ImplicitPair,
-    };
-
     [ThreadStatic]
     private static bool pairedGlass;
 
@@ -112,9 +105,10 @@ public static class OldGlassDrawPatch
         out bool __state
     )
     {
-        var fix = GlassFix.None;
-        if (GlassMaskRenderer.Recording && __0.Material.Info.Technique == MyMeshDrawTechnique.GLASS)
-            Exceptions.TryGetValue(__0.Material.Info.Name.ToString(), out fix);
+        var fix = GlassMaskRenderer.Recording
+            && __0.Material.Info.Technique == MyMeshDrawTechnique.GLASS
+            ? GetGlassFix(__0)
+            : GlassFix.None;
 
         pairedGlass = (fix & GlassFix.ImplicitPair) != 0;
         GlassMaskRenderer.CaptureBackface =
@@ -142,6 +136,40 @@ public static class OldGlassDrawPatch
         __instance.RC.SetRasterizerState(
             MyRender11.Settings.Wireframe ? MyRasterizerStateManager.WireframeRasterizerState : null
         );
+    }
+
+    private static GlassFix GetGlassFix(MyRenderableProxy proxy)
+    {
+        string material = proxy.Material.Info.Name.ToString();
+        string model = proxy.Mesh.Info.FileName;
+        if (model == null)
+            return GlassFix.None;
+
+        switch (material)
+        {
+            case "CockpitIndustrialGlassInside" when model.EndsWith(
+                "CockpitIndustrialInterior.mwm",
+                StringComparison.OrdinalIgnoreCase
+            ):
+                // This pane faces away from the pilot, and there is no second pane to pair with it.
+                return GlassFix.CaptureBackface | GlassFix.ImplicitPair;
+
+            case "CockpitFighterGlassInside" when model.EndsWith(
+                "CockpitFighterInterior.mwm",
+                StringComparison.OrdinalIgnoreCase
+            ):
+            case "GlassInside"
+                when model.EndsWith("CockpitInterior.mwm", StringComparison.OrdinalIgnoreCase)
+                    || model.EndsWith(
+                        "CockpitFlushInterior.mwm",
+                        StringComparison.OrdinalIgnoreCase
+                    ):
+                // These interiors have one pane, so it supplies both sides of the mask.
+                return GlassFix.ImplicitPair;
+
+            default:
+                return GlassFix.None;
+        }
     }
 
     public static void BindShaderBundle(MyRenderContext rc, MyMaterialShadersBundleId id)
