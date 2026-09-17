@@ -260,6 +260,19 @@ public static class GlassMaskRenderer
         #define OIT
         #include <Transparent/OIT/Globals.hlsli>
 
+        void MaskTransparentColorOutput(float4 color, float linearZ, float z, out float4 accumTarget, out float4 coverageTarget)
+        {
+            // TransparentColorOutput clips zero-alpha texels, which would also punch holes in the
+            // geometry mask. Zero its color targets instead so normal glass rendering is unchanged.
+            if (color.a < 0.0001f)
+            {
+                accumTarget = 0;
+                coverageTarget = 0;
+            }
+            else
+                TransparentColorOutput(color, linearZ, z, 1.0f, accumTarget, coverageTarget);
+        }
+
         void __pixel_shader(VertexStageOutput vertex, bool isFrontFace : SV_IsFrontFace, out float4 accumTarget : SV_TARGET0, out float4 coverageTarget : SV_TARGET1, out float2 glassDepth : SV_TARGET2)
         {
             PixelInterface pixel;
@@ -282,9 +295,9 @@ public static class GlassMaskRenderer
 
             float4 resultColor = float4(material_output.base_color, material_output.transparency);
         #ifdef CUSTOM_DEPTH
-            TransparentColorOutput(resultColor, material_output.depth, vertex.position.z, 1.0f, accumTarget, coverageTarget);
+            MaskTransparentColorOutput(resultColor, material_output.depth, vertex.position.z, accumTarget, coverageTarget);
         #else
-            TransparentColorOutput(resultColor, 0, vertex.position.z, 1.0f, accumTarget, coverageTarget);
+            MaskTransparentColorOutput(resultColor, 0, vertex.position.z, accumTarget, coverageTarget);
         #endif
         #ifdef NV_CAPTURE_BACKFACE
             // The extra back face is for the transmission mask, not normal glass rendering.
