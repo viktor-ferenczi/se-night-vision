@@ -3,6 +3,11 @@ Night Vision is a client plugin for Space Engineers, inspired by Elite Dangerous
 It brightens dark scenes, outlines nearby geometry, and adds a short-range infrared fallback when there is no visible light.
 The effect is local and does not change gameplay.
 
+Install Night Vision through [Pulsar](https://github.com/SpaceGT/Pulsar) by selecting it in the Plugins tab.
+
+## Examples
+<p align="center"><img src="Example/base.png" width="47%">&emsp;<img src="Example/fighter.png" width="47%"></p>
+
 ## Using it
 Hold the light key (`L` by default) to toggle night vision.
 A short press still toggles your light, and rebinding the light control also changes the night vision key.
