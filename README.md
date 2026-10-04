@@ -19,7 +19,8 @@ Ship cameras use active mode, while third person and spectator views use passive
 You can change these modes and adjust the image in the plugin settings.
 
 ## Building
-Use a Pulsar DevFolder with `NightVision.xml`, or build `NightVision.sln` to deploy the plugin to Pulsar's local plugin folder.
+Use a Pulsar DevFolder with `NightVision.xml`. Building `NightVision.sln` deploys the plugin to Pulsar's local plugin folder
+only if `Pulsar` is set in `Directory.Build.props.user` or passed as `-p:Pulsar=...`.
 
 ## Support
 Report bugs on the [Pulsar Discord](https://discord.gg/z8ZczP2YZY).
