@@ -61,7 +61,34 @@ public static class NightVisionController
         NightVisionRenderer.Publish(null);
     }
 
-    public static void Update()
+    private static bool failed;
+
+    /// <summary>
+    /// Main thread, from the plugin's Update. Not from a patch on MyGuiScreenGamePlay.Draw: Harmony recompiles a
+    /// patched method from its IL, and the small methods it calls (MyRenderProxy.UpdateRenderEnvironment) then run
+    /// without the patches other plugins put on them, which turned off their changes to the sun (Black Smoke's dark
+    /// void, DF-668). The snapshot holds only fade levels: once a simulation step is often enough
+    /// </summary>
+    public static void SafeUpdate()
+    {
+        if (failed || MySession.Static == null)
+            return;
+
+        try
+        {
+            Update();
+        }
+        catch (Exception e)
+        {
+            failed = true;
+            Reset();
+            MyLog.Default.Error(
+                $"{Plugin.Name}: Night vision update failed, disabling it for this session: {e}"
+            );
+        }
+    }
+
+    private static void Update()
     {
         long now = Stopwatch.GetTimestamp();
         float dt =
@@ -73,7 +100,8 @@ public static class NightVisionController
         var mode = EvaluateMode();
         var character = MySession.Static?.LocalCharacter;
         bool? helmetClosed = character == null ? null : IsHelmetClosed(character);
-        bool helmetChanged = helmetClosed.HasValue
+        bool helmetChanged =
+            helmetClosed.HasValue
             && wasHelmetClosed.HasValue
             && helmetClosed.Value != wasHelmetClosed.Value;
         wasHelmetClosed = helmetClosed;
@@ -204,5 +232,4 @@ public static class NightVisionController
                 return false;
         }
     }
-
 }

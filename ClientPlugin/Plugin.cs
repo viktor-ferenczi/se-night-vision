@@ -12,8 +12,8 @@ using VRage.Utils;
 
 // Define assembly version when compiled by Pulsar
 #if !LOCAL_BUILD
-[assembly: AssemblyVersion("1.0.1.0")]
-[assembly: AssemblyFileVersion("1.0.1.0")]
+[assembly: AssemblyVersion("1.0.2.0")]
+[assembly: AssemblyFileVersion("1.0.2.0")]
 
 #endif
 
@@ -56,7 +56,7 @@ public class Plugin : IPlugin
         Instance = null;
     }
 
-    public void Update() { }
+    public void Update() => NightVisionController.SafeUpdate();
 
     // ReSharper disable once UnusedMember.Global
     public void LoadAssets(string folder)
